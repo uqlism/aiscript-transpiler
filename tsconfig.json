@@ -1,37 +1,37 @@
 {
-  "compilerOptions": {
-    // Environment setup & latest features
-    "lib": ["ESNext"],
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleDetection": "force",
-    "allowJs": true,
+	"compilerOptions": {
+		// Environment setup & latest features
+		"lib": ["ESNext"],
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleDetection": "force",
+		"allowJs": true,
 
-    // Output configuration
-    "outDir": "dist",
-    "rootDir": ".",
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
+		// Output configuration
+		"outDir": "dist",
+		"rootDir": ".",
+		"declaration": true,
+		"declarationMap": true,
+		"sourceMap": true,
 
-    // Module resolution - using bundler for better compatibility
-    "moduleResolution": "bundler",
-    "verbatimModuleSyntax": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
+		// Module resolution - using bundler for better compatibility
+		"moduleResolution": "bundler",
+		"verbatimModuleSyntax": true,
+		"esModuleInterop": true,
+		"allowSyntheticDefaultImports": true,
 
-    // Best practices
-    "strict": true,
-    "skipLibCheck": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
+		// Best practices
+		"strict": true,
+		"skipLibCheck": true,
+		"noFallthroughCasesInSwitch": true,
+		"noUncheckedIndexedAccess": true,
+		"noImplicitOverride": true,
 
-    // Some stricter flags (disabled by default)
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "noPropertyAccessFromIndexSignature": false
-  },
-  "include": ["src/**/*", "bin/**/*", "src/**/*.d.ts"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+		// Some stricter flags (disabled by default)
+		"noUnusedLocals": false,
+		"noUnusedParameters": false,
+		"noPropertyAccessFromIndexSignature": false
+	},
+	"include": ["src/**/*", "bin/**/*", "src/**/*.d.ts"],
+	"exclude": ["node_modules", "dist", "**/*.test.ts"]
 }

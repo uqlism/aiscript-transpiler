@@ -1,7 +1,7 @@
-import { AiScriptStringifier } from "../src/stringifier";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { AiScriptBundler } from "../src/bundler";
-import * as fs from "fs";
-import * as path from "path";
+import { AiScriptStringifier } from "../src/stringifier";
 
 // bundlerを使って正しくimportを解決
 const bundler = new AiScriptBundler("../program/main.ts", "../program");
@@ -13,7 +13,7 @@ const outputPath = "../program/output.ais";
 // ディレクトリが存在することを確認
 const outputDir = path.dirname(outputPath);
 if (!fs.existsSync(outputDir)) {
-  fs.mkdirSync(outputDir, { recursive: true });
+	fs.mkdirSync(outputDir, { recursive: true });
 }
 
 // ファイルに書き込み

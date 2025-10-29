@@ -1,143 +1,147 @@
-import ts from "typescript"
-import { TranspilerPlugin } from "../../base.js"
-import type { Ast } from "@syuilo/aiscript"
-import { dummyLoc } from "../../consts.js"
+import type { Ast } from "@syuilo/aiscript";
+import ts from "typescript";
+import { TranspilerPlugin } from "../../base.js";
+import { dummyLoc } from "../../consts.js";
 
 export class SwitchStatementPlugin extends TranspilerPlugin {
-    override tryConvertStatementAsStatements = (node: ts.Statement): (Ast.Expression | Ast.Statement)[] | undefined => {
-        if (ts.isSwitchStatement(node)) {
-            return this.convertSwitchStatement(node)
-        }
-    }
+	override tryConvertStatementAsStatements = (
+		node: ts.Statement,
+	): (Ast.Expression | Ast.Statement)[] | undefined => {
+		if (ts.isSwitchStatement(node)) {
+			return this.convertSwitchStatement(node);
+		}
+	};
 
+	private convertSwitchStatement(
+		node: ts.SwitchStatement,
+	): (Ast.Statement | Ast.Expression)[] {
+		const switchExpr = this.converter.convertExpressionAsExpression(
+			node.expression,
+		);
 
-    private convertStatementOrExpression(node: ts.Statement): Ast.Statement | Ast.Expression {
-        const exprs = this.converter.convertStatementAsStatements(node);
-        switch (exprs.length) {
-            case 0:
-                return { type: "null", loc: dummyLoc };
-            case 1:
-                return exprs[0] as Ast.Statement | Ast.Expression;
-            default:
-                return { type: "block", statements: exprs, loc: dummyLoc };
-        }
-    }
+		// switch式の値を一時変数に保存（複数回参照されるため）
+		const tempVar = this.converter.getUniqueIdentifier();
+		const tempVarDef: Ast.Definition = {
+			type: "def",
+			dest: tempVar,
+			expr: switchExpr,
+			mut: false,
+			attr: [],
+			loc: dummyLoc,
+		};
 
-    private convertSwitchStatement(node: ts.SwitchStatement): (Ast.Statement | Ast.Expression)[] {
-        const switchExpr = this.converter.convertExpressionAsExpression(node.expression);
+		// if-elif文チェーンを構築
+		let ifStatement: Ast.If | undefined;
+		let defaultBody: (Ast.Statement | Ast.Expression)[] = [];
 
-        // switch式の値を一時変数に保存（複数回参照されるため）
-        const tempVar = this.converter.getUniqueIdentifier();
-        const tempVarDef: Ast.Definition = {
-            type: "def",
-            dest: tempVar,
-            expr: switchExpr,
-            mut: false,
-            attr: [],
-            loc: dummyLoc
-        };
+		for (const clause of node.caseBlock.clauses) {
+			if (ts.isCaseClause(clause)) {
+				const caseValue = this.converter.convertExpressionAsExpression(
+					clause.expression,
+				);
+				const caseBody = this.convertSwitchCaseBodyToStatements(
+					clause.statements,
+				);
 
-        // if-elif文チェーンを構築
-        let ifStatement: Ast.If | undefined = undefined;
-        let defaultBody: (Ast.Statement | Ast.Expression)[] = [];
+				// tempVar === caseValue の条件
+				const condition: Ast.Eq = {
+					type: "eq",
+					left: tempVar,
+					right: caseValue,
+					loc: dummyLoc,
+				};
 
-        for (const clause of node.caseBlock.clauses) {
-            if (ts.isCaseClause(clause)) {
-                const caseValue = this.converter.convertExpressionAsExpression(clause.expression);
-                const caseBody = this.convertSwitchCaseBodyToStatements(clause.statements);
+				const thenBlock: Ast.Block = {
+					type: "block",
+					statements: caseBody,
+					loc: dummyLoc,
+				};
 
-                // tempVar === caseValue の条件
-                const condition: Ast.Eq = {
-                    type: "eq",
-                    left: tempVar,
-                    right: caseValue,
-                    loc: dummyLoc
-                };
+				if (!ifStatement) {
+					// 最初のif文
+					ifStatement = {
+						type: "if",
+						cond: condition,
+						// biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
+						then: thenBlock,
+						elseif: [],
+						else: undefined,
+						loc: dummyLoc,
+					};
+				} else {
+					// elif文として追加
+					ifStatement.elseif.push({
+						cond: condition,
+						// biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
+						then: thenBlock,
+					});
+				}
+			} else if (ts.isDefaultClause(clause)) {
+				defaultBody = this.convertSwitchCaseBodyToStatements(clause.statements);
+			}
+		}
 
-                const thenBlock: Ast.Block = {
-                    type: "block",
-                    statements: caseBody,
-                    loc: dummyLoc
-                };
+		// default句がある場合はelse文として追加
+		if (defaultBody.length > 0 && ifStatement) {
+			ifStatement.else = {
+				type: "block",
+				statements: defaultBody,
+				loc: dummyLoc,
+			};
+		}
 
-                if (!ifStatement) {
-                    // 最初のif文
-                    ifStatement = {
-                        type: "if",
-                        cond: condition,
-                        then: thenBlock,
-                        elseif: [],
-                        else: undefined,
-                        loc: dummyLoc
-                    };
-                } else {
-                    // elif文として追加
-                    ifStatement.elseif.push({
-                        cond: condition,
-                        then: thenBlock
-                    });
-                }
-            } else if (ts.isDefaultClause(clause)) {
-                defaultBody = this.convertSwitchCaseBodyToStatements(clause.statements);
-            }
-        }
+		// 一時変数定義とif文を配列で返す
+		if (ifStatement) {
+			return [tempVarDef, ifStatement];
+		} else {
+			// case文がない場合（空のswitch）
+			return [tempVarDef];
+		}
+	}
 
-        // default句がある場合はelse文として追加
-        if (defaultBody.length > 0 && ifStatement) {
-            ifStatement.else = {
-                type: "block",
-                statements: defaultBody,
-                loc: dummyLoc
-            };
-        }
+	private createNull(): Ast.Null {
+		return { type: "null", loc: dummyLoc };
+	}
 
-        // 一時変数定義とif文を配列で返す
-        if (ifStatement) {
-            return [tempVarDef, ifStatement];
-        } else {
-            // case文がない場合（空のswitch）
-            return [tempVarDef];
-        }
-    }
+	private convertSwitchCaseBodyToStatements(
+		statements: ts.NodeArray<ts.Statement>,
+	): (Ast.Statement | Ast.Expression)[] {
+		if (statements.length === 0) {
+			return [];
+		}
 
-    private createNull(): Ast.Null {
-        return { type: "null", loc: dummyLoc };
-    }
+		const convertedStatements: (Ast.Statement | Ast.Expression)[] = [];
+		let hasBreakOrReturn = false;
 
+		for (const statement of statements) {
+			if (ts.isBreakStatement(statement)) {
+				hasBreakOrReturn = true;
+				break;
+			} else if (ts.isReturnStatement(statement)) {
+				hasBreakOrReturn = true;
+				const expr = statement.expression
+					? this.converter.convertExpressionAsExpression(statement.expression)
+					: this.createNull();
+				convertedStatements.push({
+					type: "return",
+					expr,
+					loc: dummyLoc,
+				});
+				break;
+			} else {
+				convertedStatements.push(
+					...this.converter.convertStatementAsStatements(statement),
+				);
+			}
+		}
 
-    private convertSwitchCaseBodyToStatements(statements: ts.NodeArray<ts.Statement>): (Ast.Statement | Ast.Expression)[] {
-        if (statements.length === 0) {
-            return [];
-        }
+		if (!hasBreakOrReturn) {
+			this.converter.throwError(
+				"case節の末尾にbreakまたはreturnが必要です",
+				statements[statements.length - 1] as any,
+			);
+		}
 
-        const convertedStatements: (Ast.Statement | Ast.Expression)[] = [];
-        let hasBreakOrReturn = false;
-
-        for (const statement of statements) {
-            if (ts.isBreakStatement(statement)) {
-                hasBreakOrReturn = true;
-                break;
-            } else if (ts.isReturnStatement(statement)) {
-                hasBreakOrReturn = true;
-                const expr = statement.expression
-                    ? this.converter.convertExpressionAsExpression(statement.expression)
-                    : this.createNull();
-                convertedStatements.push({
-                    type: "return",
-                    expr,
-                    loc: dummyLoc
-                });
-                break;
-            } else {
-                convertedStatements.push(...this.converter.convertStatementAsStatements(statement));
-            }
-        }
-
-        if (!hasBreakOrReturn) {
-            this.converter.throwError("case節の末尾にbreakまたはreturnが必要です", statements[statements.length - 1] as any);
-        }
-
-        return convertedStatements;
-    }
-
+		return convertedStatements;
+	}
 }

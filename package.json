@@ -1,59 +1,59 @@
 {
-  "name": "aiscript-transpiler",
-  "version": "0.1.0",
-  "description": "TypeScript to AiScript transpiler for Misskey",
-  "main": "dist/src/index.js",
-  "module": "dist/src/index.js",
-  "type": "module",
-  "exports": {
-    ".": "./dist/src/index.js",
-    "./stringifier": "./dist/src/stringifier.js",
-    "./bundler": "./dist/src/bundler.js",
-    "./types/aiscript": "./types/aiscript.d.ts",
-    "./types/misskey": "./types/misskey_aiscript.d.ts"
-  },
-  "bin": {
-    "aiscript-transpile": "./dist/bin/cli.js"
-  },
-  "files": [
-    "dist",
-    "types",
-    "README.md"
-  ],
-  "scripts": {
-    "build": "tsc && bun scripts/prepare-publish.js",
-    "test": "bun test",
-    "check": "biome check .",
-    "check:fix": "biome check . --write"
-  },
-  "keywords": [
-    "typescript",
-    "aiscript",
-    "transpiler",
-    "misskey",
-    "cli"
-  ],
-  "author": "Your Name",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/yourusername/aiscript-transpiler.git"
-  },
-  "bugs": {
-    "url": "https://github.com/yourusername/aiscript-transpiler/issues"
-  },
-  "homepage": "https://github.com/yourusername/aiscript-transpiler#readme",
-  "engines": {
-    "node": ">=18.0.0"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "^2.3.2",
-    "@types/bun": "latest",
-    "@types/node": "^20.0.0",
-    "typescript": "^5.9.3"
-  },
-  "dependencies": {
-    "@syuilo/aiscript": "^1.1.2",
-    "commander": "^14.0.2"
-  }
+	"name": "aiscript-transpiler",
+	"version": "0.1.0",
+	"description": "TypeScript to AiScript transpiler for Misskey",
+	"main": "dist/src/index.js",
+	"module": "dist/src/index.js",
+	"type": "module",
+	"exports": {
+		".": "./dist/src/index.js",
+		"./stringifier": "./dist/src/stringifier.js",
+		"./bundler": "./dist/src/bundler.js",
+		"./types/aiscript": "./types/aiscript.d.ts",
+		"./types/misskey": "./types/misskey_aiscript.d.ts"
+	},
+	"bin": {
+		"aiscript-transpile": "./dist/bin/cli.js"
+	},
+	"files": [
+		"dist",
+		"types",
+		"README.md"
+	],
+	"scripts": {
+		"build": "tsc && bun scripts/prepare-publish.js",
+		"test": "bun test",
+		"check": "biome check .",
+		"check:fix": "biome check . --write"
+	},
+	"keywords": [
+		"typescript",
+		"aiscript",
+		"transpiler",
+		"misskey",
+		"cli"
+	],
+	"author": "Your Name",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/yourusername/aiscript-transpiler.git"
+	},
+	"bugs": {
+		"url": "https://github.com/yourusername/aiscript-transpiler/issues"
+	},
+	"homepage": "https://github.com/yourusername/aiscript-transpiler#readme",
+	"engines": {
+		"node": ">=18.0.0"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.3.2",
+		"@types/bun": "latest",
+		"@types/node": "^20.0.0",
+		"typescript": "^5.9.3"
+	},
+	"dependencies": {
+		"@syuilo/aiscript": "^1.1.2",
+		"commander": "^14.0.2"
+	}
 }
