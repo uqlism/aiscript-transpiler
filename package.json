@@ -33,16 +33,16 @@
 		"misskey",
 		"cli"
 	],
-	"author": "Your Name",
+	"author": "uqlism",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/yourusername/aiscript-transpiler.git"
+		"url": "git+https://github.com/uqlism/aiscript-transpiler.git"
 	},
 	"bugs": {
-		"url": "https://github.com/yourusername/aiscript-transpiler/issues"
+		"url": "https://github.com/uqlism/aiscript-transpiler/issues"
 	},
-	"homepage": "https://github.com/yourusername/aiscript-transpiler#readme",
+	"homepage": "https://github.com/uqlism/aiscript-transpiler#readme",
 	"engines": {
 		"node": ">=18.0.0"
 	},
