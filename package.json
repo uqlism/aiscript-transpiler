@@ -21,11 +21,10 @@
     "README.md"
   ],
   "scripts": {
-    "build": "bun run build:tsc",
-    "build:tsc": "tsc && bun postbuild",
-    "postbuild": "node scripts/prepare-publish.js",
-    "prepublishOnly": "npm run build",
-    "test": "bun test"
+    "build": "tsc && bun scripts/prepare-publish.js",
+    "test": "bun test",
+    "check": "biome check .",
+    "check:fix": "biome check . --write"
   },
   "keywords": [
     "typescript",
@@ -48,6 +47,7 @@
     "node": ">=18.0.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.3.2",
     "@types/bun": "latest",
     "@types/node": "^20.0.0",
     "typescript": "^5.9.3"
