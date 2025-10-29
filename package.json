@@ -8,18 +8,21 @@
   "exports": {
     ".": "./dist/src/index.js",
     "./stringifier": "./dist/src/stringifier.js",
-    "./bundler": "./dist/src/bundler.js"
+    "./bundler": "./dist/src/bundler.js",
+    "./types/aiscript": "./types/aiscript.d.ts",
+    "./types/misskey": "./types/misskey_aiscript.d.ts"
   },
   "bin": {
     "aiscript-transpile": "./dist/bin/cli.js"
   },
   "files": [
     "dist",
+    "types",
     "README.md"
   ],
   "scripts": {
     "build": "bun run build:tsc",
-    "build:tsc": "tsc && tsc-alias",
+    "build:tsc": "tsc && bun postbuild",
     "postbuild": "node scripts/prepare-publish.js",
     "prepublishOnly": "npm run build",
     "test": "bun test"
@@ -47,8 +50,7 @@
   "devDependencies": {
     "@types/bun": "latest",
     "@types/node": "^20.0.0",
-    "typescript": "^5.9.3",
-    "tsc-alias": "^1.8.16"
+    "typescript": "^5.9.3"
   },
   "dependencies": {
     "@syuilo/aiscript": "^1.1.2",

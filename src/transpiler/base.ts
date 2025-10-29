@@ -9,25 +9,25 @@ import { reservedWords } from "./consts.js";
  * TypeScript位置情報付きトランスパイラーエラー
  */
 export class TranspilerError extends Error {
-  constructor(
-    message: string,
-    public node: ts.Node,
-    public sourceFile: ts.SourceFile
-  ) {
-    super(message);
-    this.name = 'TranspilerError';
-  }
+    constructor(
+        message: string,
+        public node: ts.Node,
+        public sourceFile: ts.SourceFile
+    ) {
+        super(message);
+        this.name = 'TranspilerError';
+    }
 
-  getPosition() {
-    const start = this.sourceFile.getLineAndCharacterOfPosition(this.node.getStart());
-    const end = this.sourceFile.getLineAndCharacterOfPosition(this.node.getEnd());
-    return {
-      startLine: start.line + 1,
-      startColumn: start.character + 1,
-      endLine: end.line + 1,
-      endColumn: end.character + 1
-    };
-  }
+    getPosition() {
+        const start = this.sourceFile.getLineAndCharacterOfPosition(this.node.getStart());
+        const end = this.sourceFile.getLineAndCharacterOfPosition(this.node.getEnd());
+        return {
+            startLine: start.line + 1,
+            startColumn: start.character + 1,
+            endLine: end.line + 1,
+            endColumn: end.character + 1
+        };
+    }
 }
 
 export class Transpiler {
@@ -39,39 +39,71 @@ export class Transpiler {
     addPlugin(pluginFactory: new (converter: TranspilerContext) => TranspilerPlugin) {
         this.#pluiginFactories.push(pluginFactory)
     }
-    transpile(sourceCode: string) {
+
+    /**
+     * ユーザープロジェクトのtsconfig.jsonからコンパイラオプションと型定義ファイルを読み込む
+     */
+    private loadCompilerOptions(userProjectRoot: string): { compilerOptions: ts.CompilerOptions } {
+        let baseCompilerOptions: ts.CompilerOptions = {
+            target: ts.ScriptTarget.Latest,
+            module: ts.ModuleKind.ESNext,
+            moduleResolution: ts.ModuleResolutionKind.Bundler,
+            allowSyntheticDefaultImports: true,
+            esModuleInterop: true,
+            skipLibCheck: true,
+            noLib: true
+        };
+
+        try {
+            // ユーザープロジェクトのtsconfig.jsonを読み込み
+            const tsconfigPath = path.join(userProjectRoot, 'tsconfig.json');
+            if (fs.existsSync(tsconfigPath)) {
+                const tsconfigContent = fs.readFileSync(tsconfigPath, 'utf8');
+                const tsconfigJson = JSON.parse(tsconfigContent);
+
+                // TypeScriptの公式APIを使用して安全にcompilerOptionsを変換
+                if (tsconfigJson.compilerOptions) {
+                    const { options, errors } = ts.convertCompilerOptionsFromJson(
+                        tsconfigJson.compilerOptions,
+                        userProjectRoot
+                    );
+
+                    if (errors.length > 0) {
+                        console.warn('TypeScript compiler options conversion errors:', errors.map(e => e.messageText));
+                    }
+
+                    // ベースオプションとユーザーオプションをマージ
+                    baseCompilerOptions = {
+                        ...baseCompilerOptions,
+                        ...options,
+                        noLib: true // 常にnoLib: trueにして制御下に置く
+                    };
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to load user tsconfig.json, using default configuration');
+        }
+
+        return { compilerOptions: baseCompilerOptions };
+    }
+    transpile(sourceCode: string, userProjectRoot?: string) {
         const sourceFile = ts.createSourceFile("main.ts", sourceCode, ts.ScriptTarget.Latest, true);
 
-        // 型チェック用のプログラムを作成
-        const program = ts.createProgram(["main.ts"], {}, {
-            getSourceFile: (fileName) => {
-                if (fileName === "main.ts") {
-                    return sourceFile;
-                }
-                if (fileName === "aiscript.d.ts") {
-                    // aiscript.d.tsの内容を読み込み
-                    try {
-                        const __dirname = path.dirname(fileURLToPath(import.meta.url));
-                        const aiscriptDtsPath = path.join(__dirname, '../aiscript.d.ts');
-                        const aiscriptDtsContent = fs.readFileSync(aiscriptDtsPath, 'utf8');
-                        return ts.createSourceFile("aiscript.d.ts", aiscriptDtsContent, ts.ScriptTarget.Latest, true);
-                    } catch (e) {
-                        console.warn('aiscript.d.ts not found, fallback to basic type checking');
-                        return undefined;
-                    }
-                }
-                return undefined;
-            },
-            writeFile: () => { },
-            getCurrentDirectory: () => "",
-            getDirectories: () => [],
-            fileExists: (fileName) => fileName === "main.ts" || fileName === "aiscript.d.ts",
-            readFile: () => "",
-            getCanonicalFileName: (fileName) => fileName,
-            useCaseSensitiveFileNames: () => true,
-            getNewLine: () => "\n",
-            getDefaultLibFileName: () => "aiscript.d.ts"
-        });
+        // ユーザープロジェクトのルートディレクトリを取得
+        // 指定されない場合は現在の作業ディレクトリを使用
+        const projectRoot = userProjectRoot || process.cwd();
+
+        // tsconfig.jsonからコンパイラオプションを読み込み
+        const { compilerOptions } = this.loadCompilerOptions(projectRoot);
+
+        // mian.ts以外のファイルはデフォルトの挙動をするCompilerHost
+        const host = ts.createCompilerHost(compilerOptions)
+        const getSourceFile = host.getSourceFile
+        host.getSourceFile = (fileName, ...args) => fileName === "main.ts" ? sourceFile : getSourceFile(fileName, ...args)
+        const fileExists = host.fileExists
+        host.fileExists = (fileName) => fileName === "main.ts" || fileExists(fileName)
+
+        const program = ts.createProgram(["main.ts"], compilerOptions, host);
         const typeChecker = program.getTypeChecker();
 
         const plugins: TranspilerPlugin[] = []

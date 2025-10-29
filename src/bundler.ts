@@ -1,7 +1,7 @@
 import ts from 'typescript';
 import { Ast } from '@syuilo/aiscript';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
+import * as fs from 'fs';
 import { TypeScriptToAiScriptTranspiler } from './transpiler/main.js';
 import { TranspilerError } from './transpiler/base.js';
 
@@ -394,13 +394,17 @@ export class AiScriptBundler {
 
     const compilerHost = ts.createCompilerHost(compilerOptions);
 
-    // transpiler/src/の型定義ファイルを含める
-    // ES Modulesでは__dirnameの代わりにimport.meta.urlを使用
-    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    // ユーザープロジェクトのnode_modules/aiscript-transpilerから型定義ファイルを含める
     const typeFiles = [
-      path.resolve(__dirname, 'aiscript.d.ts'),
-      path.resolve(__dirname, 'misskey_aiscript.d.ts')
-    ];
+      path.resolve(rootDir, 'node_modules', 'aiscript-transpiler', 'types', 'aiscript.d.ts'),
+      path.resolve(rootDir, 'node_modules', 'aiscript-transpiler', 'types', 'misskey_aiscript.d.ts')
+    ].filter(filePath => {
+      try {
+        return fs.existsSync(filePath);
+      } catch {
+        return false;
+      }
+    });
 
     return ts.createProgram([entryFile, ...typeFiles], compilerOptions, compilerHost);
   }

@@ -37,17 +37,17 @@ export class TypeScriptToAiScriptTranspiler {
         this.#transpiler = transpiler
     }
 
-    transpile(sourceCode: string): Ast.Node[] {
-        return this.#transpiler.transpile(sourceCode)
+    transpile(sourceCode: string, userProjectRoot?: string): Ast.Node[] {
+        return this.#transpiler.transpile(sourceCode, userProjectRoot)
     }
 
-    transpileAndStringify(sourceCode: string): string {
-        const result = this.transpile(sourceCode)
+    transpileAndStringify(sourceCode: string, userProjectRoot?: string): string {
+        const result = this.transpile(sourceCode, userProjectRoot)
         return AiScriptStringifier.stringify(result)
     }
 
-    static transpile(sourceCode: string): Ast.Node[] {
+    static transpile(sourceCode: string, userProjectRoot?: string): Ast.Node[] {
         const transpiler = new TypeScriptToAiScriptTranspiler()
-        return transpiler.transpile(sourceCode)
+        return transpiler.transpile(sourceCode, userProjectRoot)
     }
 }

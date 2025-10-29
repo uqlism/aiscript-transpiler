@@ -17,7 +17,7 @@ declare namespace Mk {
     function dialog(title: string, text: string, type?: "info" | "success" | "warning" | "error" | "question"): void;
     function toast(text: string): void;
     function confirm(title: string, text: string, type?: "info" | "success" | "warning" | "error" | "question"): boolean;
-    function api(endpoint: string, params: Record<string, any>, token?: string): any;
+    function api(endpoint: string, params: { [key: string]: any }, token?: string): any;
     function save(key: string, value: any): void;
     function load(key: string): any;
     function remove(key: string): void;
