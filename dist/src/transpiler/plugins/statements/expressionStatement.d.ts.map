@@ -1,0 +1,1 @@
+{"version":3,"file":"expressionStatement.d.ts","sourceRoot":"","sources":["../../../../../src/transpiler/plugins/statements/expressionStatement.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,MAAM,YAAY,CAAC;AAC5B,OAAO,EAAE,gBAAgB,EAAE,MAAM,eAAe,CAAC;AAEjD,qBAAa,yBAA0B,SAAQ,gBAAgB;IACrD,+BAA+B,GAAI,MAAM,EAAE,CAAC,SAAS,kHAI5D;CACF"}
