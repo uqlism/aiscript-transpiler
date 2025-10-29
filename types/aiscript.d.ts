@@ -29,6 +29,9 @@ interface Boolean {}
 interface Function {}
 
 // biome-ignore lint/suspicious/noEmptyInterface: Ignore
+interface RegExp {}
+
+// biome-ignore lint/suspicious/noEmptyInterface: Ignore
 interface IArguments {}
 
 interface Number {
