@@ -14,8 +14,8 @@
     "declarationMap": true,
     "sourceMap": true,
 
-    // Module resolution
-    "moduleResolution": "node",
+    // Module resolution - using bundler for better compatibility
+    "moduleResolution": "bundler",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
 

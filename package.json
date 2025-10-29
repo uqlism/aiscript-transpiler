@@ -9,12 +9,11 @@
     ".": "./dist/index.js"
   },
   "bin": {
-    "aiscript-transpile": "./dist/cli.js"
+    "aiscript-transpile": "./dist/bin/cli.js"
   },
   "files": [
     "dist",
-    "README.md",
-    "CLAUDE.md"
+    "README.md"
   ],
   "scripts": {
     "build": "bun run build:tsc",
