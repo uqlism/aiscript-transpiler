@@ -1,6 +1,9 @@
 import { Ast } from "@syuilo/aiscript";
 import * as ts from "typescript";
-import { reservedWords } from "./consts";
+import * as fs from "fs";
+import * as path from "path";
+import { fileURLToPath } from "url";
+import { reservedWords } from "./consts.js";
 
 /**
  * TypeScript位置情報付きトランスパイラーエラー
@@ -47,9 +50,8 @@ export class Transpiler {
                 }
                 if (fileName === "aiscript.d.ts") {
                     // aiscript.d.tsの内容を読み込み
-                    const fs = require('fs');
-                    const path = require('path');
                     try {
+                        const __dirname = path.dirname(fileURLToPath(import.meta.url));
                         const aiscriptDtsPath = path.join(__dirname, '../aiscript.d.ts');
                         const aiscriptDtsContent = fs.readFileSync(aiscriptDtsPath, 'utf8');
                         return ts.createSourceFile("aiscript.d.ts", aiscriptDtsContent, ts.ScriptTarget.Latest, true);

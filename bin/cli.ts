@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { AiScriptStringifier } from "../src/stringifier";
-import { AiScriptBundler } from "../src/bundler";
+import { AiScriptStringifier } from "aiscript-transpiler/stringifier";
+import { AiScriptBundler } from "aiscript-transpiler/bundler";
 import * as fs from "fs";
 import * as path from "path";
 import { program } from "commander";

@@ -1,8 +1,8 @@
 import ts from "typescript"
-import { TranspilerPlugin } from "../../base"
+import { TranspilerPlugin } from "../../base.js"
 import type { Ast } from "@syuilo/aiscript"
-import { dummyLoc } from "../../consts"
-import { validateElementAccess } from "../../utils/typeValidation"
+import { dummyLoc } from "../../consts.js"
+import { validateElementAccess } from "../../utils/typeValidation.js"
 
 export class PropertyAccessPlugin extends TranspilerPlugin {
     override tryConvertExpressionAsExpression = (node: ts.Expression): Ast.Expression | undefined => {

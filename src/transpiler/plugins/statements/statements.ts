@@ -1,7 +1,7 @@
 import ts from "typescript"
-import { TranspilerPlugin } from "../../base"
+import { TranspilerPlugin } from "../../base.js"
 import type { Ast } from "@syuilo/aiscript"
-import { dummyLoc } from "../../consts"
+import { dummyLoc } from "../../consts.js"
 
 export class StatementsPlugin extends TranspilerPlugin {
     override tryConvertStatementAsStatements = (node: ts.Statement): (Ast.Expression | Ast.Statement)[] | undefined => {

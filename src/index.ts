@@ -1,1 +1,1 @@
-export { TypeScriptToAiScriptTranspiler } from "./transpiler/main";
+export { TypeScriptToAiScriptTranspiler } from "./transpiler/main.js";

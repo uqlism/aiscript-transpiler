@@ -1,5 +1,5 @@
 import ts from "typescript"
-import { TranspilerPlugin } from "../../base"
+import { TranspilerPlugin } from "../../base.js"
 
 export class ExpressionStatementPlugin extends TranspilerPlugin {
     override tryConvertStatementAsStatements = (node: ts.Statement) => {

@@ -1,8 +1,9 @@
 import ts from 'typescript';
 import { Ast } from '@syuilo/aiscript';
 import * as path from 'path';
-import { TypeScriptToAiScriptTranspiler } from './transpiler/main';
-import { TranspilerError } from './transpiler/base';
+import { fileURLToPath } from 'url';
+import { TypeScriptToAiScriptTranspiler } from './transpiler/main.js';
+import { TranspilerError } from './transpiler/base.js';
 
 /**
  * バンドラーエラー（位置情報付き）
@@ -394,7 +395,8 @@ export class AiScriptBundler {
     const compilerHost = ts.createCompilerHost(compilerOptions);
 
     // transpiler/src/の型定義ファイルを含める
-    // __dirnameはtranspiler/src/なので、そこから型定義ファイルを参照
+    // ES Modulesでは__dirnameの代わりにimport.meta.urlを使用
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
     const typeFiles = [
       path.resolve(__dirname, 'aiscript.d.ts'),
       path.resolve(__dirname, 'misskey_aiscript.d.ts')

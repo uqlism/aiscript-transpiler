@@ -1,8 +1,8 @@
 import ts from "typescript"
-import { TranspilerPlugin } from "../../base"
+import { TranspilerPlugin } from "../../base.js"
 import type { Ast } from "@syuilo/aiscript"
-import { convertBindingNameArg } from "../../utils/destructuring"
-import { dummyLoc } from "../../consts"
+import { convertBindingNameArg } from "../../utils/destructuring.js"
+import { dummyLoc } from "../../consts.js"
 
 export class LiteralPlugin extends TranspilerPlugin {
     override tryConvertExpressionAsExpression = (node: ts.Expression): Ast.Expression | undefined => {

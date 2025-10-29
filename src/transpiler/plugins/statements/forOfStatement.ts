@@ -1,9 +1,9 @@
 import ts from "typescript"
-import { TranspilerPlugin } from "../../base"
+import { TranspilerPlugin } from "../../base.js"
 import type { Ast } from "@syuilo/aiscript"
-import { convertBindingNameArg } from "../../utils/destructuring"
-import { validateArrayExpression } from "../../utils/typeValidation"
-import { dummyLoc } from "../../consts"
+import { convertBindingNameArg } from "../../utils/destructuring.js"
+import { validateArrayExpression } from "../../utils/typeValidation.js"
+import { dummyLoc } from "../../consts.js"
 
 export class ForOfStatementPlugin extends TranspilerPlugin {
     override tryConvertStatementAsStatements = (node: ts.Statement): (Ast.Expression | Ast.Statement)[] | undefined => {

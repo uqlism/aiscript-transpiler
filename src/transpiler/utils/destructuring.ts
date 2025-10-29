@@ -1,7 +1,7 @@
 import ts from "typescript"
 import type { Ast } from "@syuilo/aiscript"
-import type { TranspilerContext } from "../base"
-import { dummyLoc } from "../consts"
+import type { TranspilerContext } from "../base.js"
+import { dummyLoc } from "../consts.js"
 
 
 /**

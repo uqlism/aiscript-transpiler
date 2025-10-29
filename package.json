@@ -2,11 +2,13 @@
   "name": "aiscript-transpiler",
   "version": "0.1.0",
   "description": "TypeScript to AiScript transpiler for Misskey",
-  "main": "dist/index.js",
-  "module": "dist/index.js",
+  "main": "dist/src/index.js",
+  "module": "dist/src/index.js",
   "type": "module",
   "exports": {
-    ".": "./dist/index.js"
+    ".": "./dist/src/index.js",
+    "./stringifier": "./dist/src/stringifier.js",
+    "./bundler": "./dist/src/bundler.js"
   },
   "bin": {
     "aiscript-transpile": "./dist/bin/cli.js"
@@ -17,12 +19,18 @@
   ],
   "scripts": {
     "build": "bun run build:tsc",
-    "build:tsc": "tsc",
+    "build:tsc": "tsc && tsc-alias",
     "postbuild": "node scripts/prepare-publish.js",
     "prepublishOnly": "npm run build",
     "test": "bun test"
   },
-  "keywords": ["typescript", "aiscript", "transpiler", "misskey", "cli"],
+  "keywords": [
+    "typescript",
+    "aiscript",
+    "transpiler",
+    "misskey",
+    "cli"
+  ],
   "author": "Your Name",
   "license": "MIT",
   "repository": {
@@ -39,7 +47,8 @@
   "devDependencies": {
     "@types/bun": "latest",
     "@types/node": "^20.0.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "tsc-alias": "^1.8.16"
   },
   "dependencies": {
     "@syuilo/aiscript": "^1.1.2",

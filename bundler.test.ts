@@ -1,12 +1,14 @@
 import { describe, test, expect } from 'bun:test';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { AiScriptBundler, BundlerError } from './src/bundler';
 import { TypeScriptToAiScriptTranspiler } from './src/transpiler/main';
 import { TranspilerError } from './src/transpiler/base';
 import assert from 'assert';
 
 // テスト用のファイルシステム操作
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const testDir = path.join(__dirname, 'test-files');
 
 function ensureTestDir() {

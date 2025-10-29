@@ -1,5 +1,5 @@
 import ts from "typescript"
-import { TranspilerPlugin } from "../base"
+import { TranspilerPlugin } from "../base.js"
 import type { Ast } from "@syuilo/aiscript"
 
 /** TSの型にしか影響しない表現を無視 */

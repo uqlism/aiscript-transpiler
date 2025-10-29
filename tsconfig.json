@@ -16,6 +16,7 @@
 
     // Module resolution - using bundler for better compatibility
     "moduleResolution": "bundler",
+    "verbatimModuleSyntax": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
 
