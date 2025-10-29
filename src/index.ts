@@ -1,0 +1,1 @@
+export { TypeScriptToAiScriptTranspiler } from "./transpiler/main";
