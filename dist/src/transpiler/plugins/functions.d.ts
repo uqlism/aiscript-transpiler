@@ -7,5 +7,7 @@ export declare class FunctionsPlugin extends TranspilerPlugin {
     private convertFunctionDeclaration;
     private convertInlineFunction;
     private processParameters;
+    private hasExportModifier;
+    private hasDeclareModifier;
 }
 //# sourceMappingURL=functions.d.ts.map

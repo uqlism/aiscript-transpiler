@@ -19,10 +19,10 @@ export declare class Transpiler {
     constructor();
     addPlugin(pluginFactory: new (converter: TranspilerContext) => TranspilerPlugin): void;
     /**
-     * ユーザープロジェクトのtsconfig.jsonからコンパイラオプションと型定義ファイルを読み込む
+     * TypeScript Programを受け取ってAiScript ASTに変換する
+     * 核となる変換処理のみを行う
      */
-    private loadCompilerOptions;
-    transpile(sourceCode: string, userProjectRoot?: string): Ast.Node[];
+    transpileProgram(program: ts.Program, entrySourceFile: ts.SourceFile): Ast.Node[];
 }
 export type TranspilerContext = {
     convertExpressionAsExpression(expr: ts.Expression): Ast.Expression;
@@ -32,6 +32,8 @@ export type TranspilerContext = {
     validateVariableName(name: string, node: ts.Node): void;
     throwError(message: string, node: ts.Node): never;
     typeChecker: ts.TypeChecker;
+    getModuleRef(importPath: string): Ast.Identifier;
+    addExport(name: string): void;
 };
 export declare class TranspilerPlugin {
     protected converter: TranspilerContext;

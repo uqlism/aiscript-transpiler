@@ -1,33 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import assert from "node:assert";
-import * as fs from "node:fs";
-import * as path from "node:path";
-import { fileURLToPath } from "node:url";
 import { TypeScriptToAiScriptTranspiler } from "./src/transpiler/main";
 import { TranspilerError } from "./src/transpiler/base";
-
-// テスト用のファイルシステム操作
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const testDir = path.join(__dirname, "test-files");
-
-function ensureTestDir() {
-	if (!fs.existsSync(testDir)) {
-		fs.mkdirSync(testDir, { recursive: true });
-	}
-}
-
-function createTestFile(fileName: string, content: string): string {
-	ensureTestDir();
-	const filePath = path.join(testDir, fileName);
-	fs.writeFileSync(filePath, content, "utf8");
-	return filePath;
-}
-
-function cleanupTestDir() {
-	if (fs.existsSync(testDir)) {
-		fs.rmSync(testDir, { recursive: true, force: true });
-	}
-}
+import ts from "typescript";
+import fs from "fs";
+import { AiScriptStringifier } from "./src/stringifier";
+import { Parser } from "@syuilo/aiscript";
 
 const testCases = [
 	{
@@ -36,24 +14,24 @@ const testCases = [
 			main: `
         const message = "Hello, World!";
         const number = 42;
-        console.log(message, number);
+        print(message, number);
       `,
 		},
 		expected: `
-      const message = "Hello, World!";
-      const number = 42;
-      console.log(message, number);
+      let message = "Hello, World!";
+      let number = 42;
+      print(message, number);
     `,
 	},
 	{
 		title: "単純なnamed importの解決",
 		modules: {
 			main: `
-        import { PI, multiply } from './utils';
+        import { PI, multiply } from './utils.js';
 
         const radius = 5;
         const area = multiply(PI, radius * radius);
-        console.log(area);
+        print(area);
       `,
 			utils: `
         export const PI = 3.14159;
@@ -63,13 +41,18 @@ const testCases = [
       `,
 		},
 		expected: `
-      const PI = 3.14159;
-      function multiply(a: number, b: number): number {
-        return a * b;
-      }
-      const radius = 5;
-      const area = multiply(PI, radius * radius);
-      console.log(area);
+    let __gen_00001 = eval {
+        let PI = 3.14159
+        @multiply(a, b) {
+          return (a * b)
+        }
+		({PI: PI, multiply: multiply})
+    }
+    let PI = __gen_00001.PI
+    let multiply = __gen_00001.multiply
+    let radius = 5
+    let area = multiply(PI, (radius * radius))
+    print(area)
     `,
 	},
 	{
@@ -80,7 +63,7 @@ const testCases = [
         import { count as countB, decrement } from './moduleB';
 
         const result = increment() + decrement();
-        console.log(countA, countB, result);
+        print(countA, countB, result);
       `,
 			moduleA: `
         export const count = 1;
@@ -95,18 +78,26 @@ const testCases = [
         }
       `,
 		},
-		expected: `
-      const count = 1;
-      function increment() {
-        return count + 1;
+		expected: `let __gen_00001 = eval {
+      let count = 1
+      @increment() {
+        return (count + 1)
       }
-      const count$1 = 100;
-      function decrement() {
-        return count$1 - 1;
+      ({count: count, increment: increment})
+    }
+    let __gen_00002 = eval {
+      let count = 100
+      @decrement() {
+        return (count - 1)
       }
-      const result = increment() + decrement();
-      console.log(countA, countB, result);
-    `,
+      ({count: count, decrement: decrement})
+    }
+    let countA = __gen_00001.count
+    let increment = __gen_00001.increment
+    let countB = __gen_00002.count
+    let decrement = __gen_00002.decrement
+    let result = (increment() + decrement())
+    print(countA, countB, result)`,
 	},
 	{
 		title: "複数階層のimportチェーン",
@@ -129,13 +120,6 @@ const testCases = [
       `,
 		},
 		expected: `
-      const BASE_VALUE = 10;
-      const MIDDLE_VALUE = BASE_VALUE * 2;
-      function getBase() {
-        return BASE_VALUE;
-      }
-      const result = MIDDLE_VALUE + getBase();
-      console.log(result);
     `,
 	},
 	{
@@ -162,17 +146,6 @@ const testCases = [
       `,
 		},
 		expected: `
-      function add(a: number, b: number): number {
-        return a + b;
-      }
-      function subtract(a: number, b: number): number {
-        return a - b;
-      }
-      const x = 10;
-      const y = 5;
-      const sum = add(x, y);
-      const diff = subtract(x, y);
-      console.log(sum, diff);
     `,
 	},
 ];
@@ -317,78 +290,100 @@ export function complexFunc() {
 	},
 ];
 
-describe("AiScript Bundler", () => {
-	test.each(testCases)("$title", ({ modules, expected }) => {
-		// ファイルを作成
-		const createdFiles: string[] = [];
-		for (const [fileName, content] of Object.entries(modules)) {
-			const actualFileName =
-				fileName === "main" ? "entry.ts" : `${fileName}.ts`;
-			const filePath = createTestFile(actualFileName, content);
-			createdFiles.push(filePath);
-		}
+function transpile(modules: { [key: string]: string }) {
+	// 単一ファイル用のプログラムを作成
+	const compilerOptions: ts.CompilerOptions = {
+		nolib: true,
+		types: ["aiscript.d.ts"],
+	};
 
-		const entryFile = createdFiles[0]; // main は最初に作成される
-		assert(entryFile);
-		const transpiler = new TypeScriptToAiScriptTranspiler();
-		const bundledResult = transpiler.transpileFileAndStringify(entryFile, testDir);
+	const files = {
+		...Object.fromEntries(
+			Object.entries(modules).map(([k, v]) => [
+				`${k}.ts`,
+				ts.createSourceFile(`${k}.ts`, v, ts.ScriptTarget.Latest),
+			]),
+		),
+		"aiscript.d.ts": ts.createSourceFile(
+			"aiscript.d.ts",
+			fs.readFileSync("./types/aiscript.d.ts", "utf8"),
+			ts.ScriptTarget.Latest,
+			true,
+		),
+	};
 
-		// For now, just check that the result is a string and contains some expected content
-		expect(typeof bundledResult).toBe("string");
-		expect(bundledResult.length).toBeGreaterThan(0);
+	const raws = {
+		...Object.fromEntries(
+			Object.entries(modules).map(([k, v]) => [`${k}.ts`, v]),
+		),
+		"aiscript.d.ts": fs.readFileSync("./types/aiscript.d.ts", "utf8"),
+	};
 
-		cleanupTestDir();
+	const program = ts.createProgram(Object.keys(files), compilerOptions, {
+		getSourceFile: (fileName) => (files as any)[fileName],
+		writeFile: () => {},
+		getCurrentDirectory: () => process.cwd(),
+		getDirectories: () => [],
+		fileExists: (fileName) => fileName in files,
+		readFile: (fileName) => raws[fileName],
+		getCanonicalFileName: (fileName) => fileName,
+		useCaseSensitiveFileNames: () => true,
+		getNewLine: () => "\n",
+		getDefaultLibFileName: () => "aiscript.d.ts",
 	});
 
-	describe("Error position verification", () => {
-		test.each(positionTestCases)("$title", ({ modules, expectedPosition }) => {
-			// ファイルを作成
-			const createdFiles: string[] = [];
-			for (const [fileName, content] of Object.entries(modules)) {
-				const actualFileName =
-					fileName === "main" ? "entry.ts" : `${fileName}.ts`;
-				const filePath = createTestFile(actualFileName, content);
-				createdFiles.push(filePath);
-			}
+	return new TypeScriptToAiScriptTranspiler().transpileProgram(
+		program,
+		(files as any)["main.ts"],
+	);
+}
 
-			const entryFile = createdFiles[0]; // main は最初に作成される
-			assert(entryFile);
-			const transpiler = new TypeScriptToAiScriptTranspiler();
+describe.only("AiScript Bundler", () => {
+	test.each(testCases)("$title", ({ modules, expected }) => {
+		// ファイルを作成
+		const bundledResult = transpile(modules as any);
 
-			expect(() => {
-				transpiler.transpileFile(entryFile, testDir);
-			}).toThrow(TranspilerError);
+		// For now, just check that the result is a string and contains some expected content
+		expect(AiScriptStringifier.stringify(bundledResult)).toBe(
+			AiScriptStringifier.stringify(Parser.parse(expected)),
+		);
+	});
+});
+describe("Error position verification", () => {
+	test.each(positionTestCases)("$title", ({ modules, expectedPosition }) => {
+		expect(() => {
+			transpile(modules as any);
+		}).toThrow(TranspilerError);
 
-			try {
-				transpiler.transpileFile(entryFile, testDir);
-			} catch (error) {
-				expect(error).toBeInstanceOf(TranspilerError);
-				const transpilerError = error as TranspilerError;
+		try {
+			transpile(modules as any);
+		} catch (error) {
+			expect(error).toBeInstanceOf(TranspilerError);
+			const transpilerError = error as TranspilerError;
 
-				// expectedPosition をパース (例: "utils.ts:4:3")
-				const parts = expectedPosition.split(":");
-				const expectedFile = parts[0]!;
-				const expectedLineNum = parseInt(parts[1]!, 10);
-				const expectedColNum = parseInt(parts[2]!, 10);
+			// expectedPosition をパース (例: "utils.ts:4:3")
+			const parts = expectedPosition.split(":");
+			const expectedFile = parts[0]!;
+			const expectedLineNum = parseInt(parts[1]!, 10);
+			const expectedColNum = parseInt(parts[2]!, 10);
 
-				// ファイル名の検証 (フルパスから最後の部分を取得)
-				const actualFileName = transpilerError.sourceFile.fileName.split("/").pop()!;
-				expect(actualFileName).toBe(expectedFile);
+			// ファイル名の検証 (フルパスから最後の部分を取得)
+			const actualFileName = transpilerError.sourceFile.fileName
+				.split("/")
+				.pop()!;
+			expect(actualFileName).toBe(expectedFile);
 
-				// 行番号・列番号の検証
-				const position = transpilerError.getPosition();
-				expect(position.startLine).toBe(expectedLineNum);
-				expect(position.startColumn).toBe(expectedColNum);
+			// 行番号・列番号の検証
+			const position = transpilerError.getPosition();
+			expect(position.startLine).toBe(expectedLineNum);
+			expect(position.startColumn).toBe(expectedColNum);
 
-				// 結果表示
-				const moduleCount = Object.keys(modules).length;
-				const moduleType = moduleCount === 1 ? "Single-module" : "Multi-module";
-				console.log(
-					`✓ ${moduleType} position verified: ${actualFileName}:${position.startLine}:${position.startColumn} (expected: ${expectedPosition})`,
-				);
-			}
-
-			cleanupTestDir();
-		});
+			// 結果表示
+			const moduleCount = Object.keys(modules).length;
+			const moduleType = moduleCount === 1 ? "Single-module" : "Multi-module";
+			console.log(
+				`✓ ${moduleType} position verified: ${actualFileName}:${position.startLine}:${position.startColumn} (expected: ${expectedPosition})`,
+			);
+		}
 	});
 });

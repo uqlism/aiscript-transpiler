@@ -2,8 +2,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { env } from "node:process";
-import { AiScriptBundler } from "aiscript-transpiler/bundler";
-import { AiScriptStringifier } from "aiscript-transpiler/stringifier";
+import { TypeScriptToAiScriptTranspiler } from "../src/transpiler/main.js";
+import { AiScriptStringifier } from "../src/stringifier.js";
 import { program } from "commander";
 program
     .command("transpile")
@@ -42,9 +42,9 @@ function transpile(entryFile, options) {
     }
     try {
         console.log(`🔧 Transpiling ${entryFile}...`);
-        // Use bundler to transpile
-        const bundler = new AiScriptBundler(entryPath, process.cwd());
-        const result = bundler.bundle();
+        // Use transpiler directly with file path
+        const transpiler = new TypeScriptToAiScriptTranspiler();
+        const result = transpiler.transpileFile(entryPath, process.cwd());
         const aiScript = AiScriptStringifier.stringify(result);
         // Ensure output directory exists
         const outputDir = path.dirname(finalOutputPath);
@@ -83,12 +83,12 @@ async function deploy(entryFile, domain, playId, options) {
     }
     try {
         console.log(`🔧 変換中 ${entryFile}...`);
-        // Use bundler to transpile
-        const bundler = new AiScriptBundler(entryPath, process.cwd());
-        const result = bundler.bundle();
+        // Use transpiler directly with file path
+        const transpiler = new TypeScriptToAiScriptTranspiler();
+        const result = transpiler.transpileFile(entryPath, process.cwd());
         const aiScript = AiScriptStringifier.stringify(result);
         console.log(`🔧 Play更新中 ${entryFile}...`);
-        await fetch(`https://${domain}/api/flash/update`, {
+        const res = await fetch(`https://${domain}/api/flash/update`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -99,15 +99,17 @@ async function deploy(entryFile, domain, playId, options) {
                 script: aiScript,
             }),
         });
-        aiScript;
+        if (!res.ok) {
+            console.log(await res.json());
+        }
     }
     catch (error) {
         console.error("❌ Transpilation failed:");
         if (error instanceof Error) {
-            console.error(error.message);
+            console.error(error, error.message);
         }
         else {
-            console.error(String(error));
+            console.error(error, String(error));
         }
         process.exit(1);
     }

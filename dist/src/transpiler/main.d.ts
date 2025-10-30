@@ -1,9 +1,10 @@
 import type { Ast } from "@syuilo/aiscript";
+import * as ts from "typescript";
 export declare class TypeScriptToAiScriptTranspiler {
     #private;
     constructor();
-    transpile(sourceCode: string, userProjectRoot?: string): Ast.Node[];
-    static transpile(sourceCode: string, userProjectRoot?: string): Ast.Node[];
-    transpileAndStringify(sourceCode: string, userProjectRoot?: string): string;
+    transpileFile(entryFilePath: string, userProjectRoot?: string): Ast.Node[];
+    transpileProgram(program: ts.Program, entrySourceFile: ts.SourceFile): Ast.Node[];
+    static transpileFile(entryFilePath: string, userProjectRoot?: string): Ast.Node[];
 }
 //# sourceMappingURL=main.d.ts.map

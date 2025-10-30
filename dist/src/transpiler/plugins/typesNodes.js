@@ -8,6 +8,8 @@ export class TypeNodesPlugin extends TranspilerPlugin {
                 return [];
             case ts.isInterfaceDeclaration(node):
                 return [];
+            case ts.isDeclarationStatement(node):
+                return [];
         }
     };
     tryConvertExpressionAsExpression = (node) => {

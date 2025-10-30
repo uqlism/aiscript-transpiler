@@ -11,7 +11,7 @@ export class FunctionsPlugin extends TranspilerPlugin {
 		node: ts.Statement,
 	): (Ast.Expression | Ast.Statement)[] | undefined => {
 		if (ts.isFunctionDeclaration(node)) {
-			return [this.convertFunctionDeclaration(node)];
+			return this.convertFunctionDeclaration(node);
 		}
 	};
 
@@ -25,7 +25,10 @@ export class FunctionsPlugin extends TranspilerPlugin {
 
 	private convertFunctionDeclaration(
 		node: ts.FunctionDeclaration,
-	): Ast.Definition {
+	): Ast.Definition[] {
+		if (this.hasDeclareModifier(node)) {
+			return [];
+		}
 		const name = node.name?.text || "";
 		if (name && node.name) {
 			this.converter.validateVariableName(name, node.name);
@@ -50,20 +53,22 @@ export class FunctionsPlugin extends TranspilerPlugin {
 		const finalBody = [...destructuringStatements, ...body];
 
 		// AiScript形式の関数定義: @name(params) { ... }
-		return {
-			type: "def",
-			dest: { type: "identifier", name, loc: dummyLoc },
-			expr: {
-				type: "fn",
-				typeParams: [],
-				params: params,
-				children: finalBody,
+		return [
+			{
+				type: "def",
+				dest: { type: "identifier", name, loc: dummyLoc },
+				expr: {
+					type: "fn",
+					typeParams: [],
+					params: params,
+					children: finalBody,
+					loc: dummyLoc,
+				},
+				mut: false,
+				attr: [],
 				loc: dummyLoc,
 			},
-			mut: false,
-			attr: [],
-			loc: dummyLoc,
-		};
+		];
 	}
 
 	private convertInlineFunction(
@@ -139,7 +144,21 @@ export class FunctionsPlugin extends TranspilerPlugin {
 	}
 
 	private hasExportModifier(node: ts.Node): boolean {
-		return ts.canHaveModifiers(node) &&
-			   (ts.getModifiers(node)?.some((mod) => mod.kind === ts.SyntaxKind.ExportKeyword) ?? false);
+		return (
+			ts.canHaveModifiers(node) &&
+			(ts
+				.getModifiers(node)
+				?.some((mod) => mod.kind === ts.SyntaxKind.ExportKeyword) ??
+				false)
+		);
+	}
+	private hasDeclareModifier(node: ts.Node): boolean {
+		return (
+			ts.canHaveModifiers(node) &&
+			(ts
+				.getModifiers(node)
+				?.some((mod) => mod.kind === ts.SyntaxKind.DeclareKeyword) ??
+				false)
+		);
 	}
 }

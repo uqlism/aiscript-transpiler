@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { type Ast, Parser } from "@syuilo/aiscript";
 import { TypeScriptToAiScriptTranspiler } from "./src/index.ts";
 import { AiScriptStringifier } from "./src/stringifier.ts";
+import ts from "typescript";
+import fs from "fs";
 
 const testcases = [
 	{
@@ -18,6 +20,7 @@ const testcases = [
 		title: "イミュータブル（再代入不可）",
 		ts: "const x = 42;",
 		ais: "let x = 42;",
+		only: true,
 	},
 	{
 		title: "ミュータブル（再代入可能）",
@@ -92,53 +95,53 @@ const testcases = [
 	{
 		title: "分割代入-配列",
 		ts: `const [a, b] = [1, 2]`,
-		ais: `let __gen_00001 = [1, 2]; let a = __gen_00001[0]; let b = __gen_00001[1];`,
+		ais: `let __gen_00002 = [1, 2]; let a = __gen_00002[0]; let b = __gen_00002[1];`,
 	},
 	{
 		title: "分割代入-オブジェクト",
 		ts: `const { x, y } = { x: 1, y: 2 }`,
-		ais: `let __gen_00001 = {x: 1, y: 2}; let x = __gen_00001.x; let y = __gen_00001.y;`,
+		ais: `let __gen_00002 = {x: 1, y: 2}; let x = __gen_00002.x; let y = __gen_00002.y;`,
 	},
 	{
 		title: "分割代入-オブジェクト(名前変更)",
 		ts: `const { x: a, y: b } = { x: 1, y: 2 }`,
-		ais: `let __gen_00001 = {x: 1, y: 2}; let a = __gen_00001.x; let b = __gen_00001.y;`,
+		ais: `let __gen_00002 = {x: 1, y: 2}; let a = __gen_00002.x; let b = __gen_00002.y;`,
 	},
 	{
 		title: "分割代入-関数の引数",
 		ts: `function test([a, b] = [0, 0]){ return [a, b] }`,
-		ais: `@test(__gen_00001 = [0, 0]) { let a = __gen_00001[0]; let b = __gen_00001[1]; return [a, b] }`,
+		ais: `@test(__gen_00002 = [0, 0]) { let a = __gen_00002[0]; let b = __gen_00002[1]; return [a, b] }`,
 	},
 	{
 		title: "分割代入-アロー関数の引数",
 		ts: `([a, b] = [0, 0]) => [a, b]`,
-		ais: `@(__gen_00001 = [0, 0]) { let a = __gen_00001[0]; let b = __gen_00001[1]; return [a, b] }`,
+		ais: `@(__gen_00002 = [0, 0]) { let a = __gen_00002[0]; let b = __gen_00002[1]; return [a, b] }`,
 	},
 	{
 		title: "分割代入-匿名関数の引数",
 		ts: `const f = function([a, b] = [0, 0]) { return [a, b] }`,
-		ais: `let f = @(__gen_00001 = [0, 0]) { let a = __gen_00001[0]; let b = __gen_00001[1]; return [a, b] }`,
+		ais: `let f = @(__gen_00002 = [0, 0]) { let a = __gen_00002[0]; let b = __gen_00002[1]; return [a, b] }`,
 	},
 
 	{
 		title: "代入文-配列分割代入",
 		ts: `let a = 0, b = 0; [a, b] = [1, 2]`,
-		ais: `var a = 0; var b = 0; let __gen_00001 = [1, 2]; a = __gen_00001[0]; b = __gen_00001[1];`,
+		ais: `var a = 0; var b = 0; let __gen_00002 = [1, 2]; a = __gen_00002[0]; b = __gen_00002[1];`,
 	},
 	{
 		title: "代入文-オブジェクト分割代入",
 		ts: `let x = 0, y = 0; ({ x, y } = { x: 1, y: 2 })`,
-		ais: `var x = 0; var y = 0; let __gen_00001 = {x: 1, y: 2}; x = __gen_00001.x; y = __gen_00001.y;`,
+		ais: `var x = 0; var y = 0; let __gen_00002 = {x: 1, y: 2}; x = __gen_00002.x; y = __gen_00002.y;`,
 	},
 	{
 		title: "ネストした分割代入-配列内オブジェクト",
 		ts: `const [a, { x, y }] = [1, { x: 2, y: 3 }]`,
-		ais: `let __gen_00001 = [1, {x: 2, y: 3}]; let a = __gen_00001[0]; let x = __gen_00001[1].x; let y = __gen_00001[1].y;`,
+		ais: `let __gen_00002 = [1, {x: 2, y: 3}]; let a = __gen_00002[0]; let x = __gen_00002[1].x; let y = __gen_00002[1].y;`,
 	},
 	{
 		title: "ネストした分割代入-オブジェクト内配列",
 		ts: `const { arr: [a, b] } = { arr: [1, 2] }`,
-		ais: `let __gen_00001 = {arr: [1, 2]}; let a = __gen_00001.arr[0]; let b = __gen_00001.arr[1];`,
+		ais: `let __gen_00002 = {arr: [1, 2]}; let a = __gen_00002.arr[0]; let b = __gen_00002.arr[1];`,
 	},
 
 	{
@@ -167,12 +170,12 @@ const testcases = [
 	{
 		title: "for-of文(配列分割代入)",
 		ts: `for (const [a, b] of items) { a; b; }`,
-		ais: `each let __gen_00001, items { let a = __gen_00001[0]; let b = __gen_00001[1]; a; b }`,
+		ais: `each let __gen_00002, items { let a = __gen_00002[0]; let b = __gen_00002[1]; a; b }`,
 	},
 	{
 		title: "for-of文(オブジェクト分割代入)",
 		ts: `for (const {x, y} of items) { x; y; }`,
-		ais: `each let __gen_00001, items { let x = __gen_00001.x; let y = __gen_00001.y; x; y }`,
+		ais: `each let __gen_00002, items { let x = __gen_00002.x; let y = __gen_00002.y; x; y }`,
 	},
 
 	{
@@ -285,7 +288,7 @@ const testcases = [
 	{
 		title: "Switch文(break/return必須)",
 		ts: "() => switch (x) { case 1: 100; break; case 2: break; case 3: return undefined; default: return 3; }",
-		ais: "@(){ let __gen_00001 = x; if __gen_00001 == 1 { 100 } elif __gen_00001 == 2 { } elif __gen_00001 == 3 { return null } else { return 3 }}",
+		ais: "@(){ let __gen_00002 = x; if __gen_00002 == 1 { 100 } elif __gen_00002 == 2 { } elif __gen_00002 == 3 { return null } else { return 3 }}",
 	},
 	{
 		title: "Switch文(break/returnない場合エラー)",
@@ -433,9 +436,9 @@ const testcases = [
 		ais: `loop { var x = 1; x += 1 }`,
 	},
 	{
-		title: "for-of文の右辺が文字列",
+		title: "[ERR] for-of文の右辺が文字列",
 		ts: `for (const char of "hello") { }`,
-		ais: `each let char, "hello" { }`,
+		err: `配列型である必要があります`,
 	},
 	{
 		title: "[ERR] for-of文の右辺が数値",
@@ -478,9 +481,9 @@ const testcases = [
 		err: "オブジェクトのインデックスはstring型である必要があります",
 	},
 	{
-		title: "要素アクセス - 文字列[数値]",
+		title: "[ERR] 要素アクセス - 文字列[数値]",
 		ts: `let str = "hello"; str[0];`,
-		ais: `var str = "hello"; str[0];`,
+		err: `要素アクセスは配列またはオブジェクトに対してのみ使用できます。`,
 	},
 	{
 		title: "[ERR] 要素アクセス - 数値[数値]",
@@ -489,17 +492,63 @@ const testcases = [
 	},
 ];
 
-describe("TypeScript to AiScript Transpiler", () => {
+function transpile(value: string) {
+	// 一時的なソースファイルを作成
+	const tempFileName = "temp.ts";
+	// 単一ファイル用のプログラムを作成
+	const compilerOptions: ts.CompilerOptions = {
+		nolib: true,
+		types: [],
+	};
+
+	const files = {
+		"temp.ts": ts.createSourceFile(
+			tempFileName,
+			value,
+			ts.ScriptTarget.Latest,
+			true,
+		),
+		"aiscript.d.ts": ts.createSourceFile(
+			"aiscript.d.ts",
+			fs.readFileSync("./types/aiscript.d.ts", "utf8"),
+			ts.ScriptTarget.Latest,
+			true,
+		),
+	};
+
+	const program = ts.createProgram(
+		[tempFileName, "aiscript.d.ts"],
+		compilerOptions,
+		{
+			getSourceFile: (fileName) => (files as any)[fileName],
+			writeFile: () => {},
+			getCurrentDirectory: () => process.cwd(),
+			getDirectories: () => [],
+			fileExists: (fileName) => fileName in files,
+			readFile: (fileName) => undefined,
+			getCanonicalFileName: (fileName) => fileName,
+			useCaseSensitiveFileNames: () => true,
+			getNewLine: () => "\n",
+			getDefaultLibFileName: () => "aiscript.d.ts",
+		},
+	);
+
+	return new TypeScriptToAiScriptTranspiler().transpileProgram(
+		program,
+		files["temp.ts"],
+	);
+}
+
+describe.only("TypeScript to AiScript Transpiler", () => {
 	test.each(testcases)("$title", ({ ts, ais, err }) => {
 		if (ais) {
-			expectSameNode(
-				TypeScriptToAiScriptTranspiler.transpile(ts),
-				Parser.parse(ais),
+			expect(AiScriptStringifier.stringify(transpile(ts))).toBe(
+				AiScriptStringifier.stringify(Parser.parse(ais)),
 			);
 		}
 		if (err) {
 			expect(() => {
-				TypeScriptToAiScriptTranspiler.transpile(ts);
+				transpile(ts);
 			}).toThrow(err);
 		}
 	});

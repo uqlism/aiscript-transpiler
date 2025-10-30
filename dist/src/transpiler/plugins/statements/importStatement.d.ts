@@ -1,10 +1,8 @@
 import type { Ast } from "@syuilo/aiscript";
 import ts from "typescript";
 import { TranspilerPlugin } from "../../base.js";
-export declare class VariableStatementPlugin extends TranspilerPlugin {
+export declare class ImportStatementPlugin extends TranspilerPlugin {
     tryConvertStatementAsStatements: (node: ts.Statement) => (Ast.Expression | Ast.Statement)[] | undefined;
-    private convertVariableStatements;
-    private hasExportModifier;
-    private hasDeclareModifier;
+    private convertImportDeclaration;
 }
-//# sourceMappingURL=variableStatement.d.ts.map
+//# sourceMappingURL=importStatement.d.ts.map

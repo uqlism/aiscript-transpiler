@@ -1,5 +1,7 @@
 import type { Ast } from "@syuilo/aiscript";
-import ts from "typescript";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as ts from "typescript";
 import { AiScriptStringifier } from "../stringifier.js";
 import { Transpiler as BaseTranspiler } from "./base.js";
 import { ConditionPlugin } from "./plugins/condition.js";
@@ -18,6 +20,95 @@ import { StatementsPlugin } from "./plugins/statements/statements.js";
 import { SwitchStatementPlugin } from "./plugins/statements/switchStatement.js";
 import { VariableStatementPlugin } from "./plugins/statements/variableStatement.js";
 import { TypeNodesPlugin } from "./plugins/typesNodes.js";
+
+/**
+ * tsconfig.jsonからCompilerOptionsを読み込む
+ */
+function loadCompilerOptions(userProjectRoot: string): ts.CompilerOptions {
+	let baseCompilerOptions: ts.CompilerOptions = {
+		target: ts.ScriptTarget.Latest,
+		module: ts.ModuleKind.ESNext,
+		moduleResolution: ts.ModuleResolutionKind.Node10,
+		allowJs: false,
+		declaration: false,
+		outDir: undefined,
+		rootDir: undefined,
+		removeComments: false,
+		strict: true,
+		esModuleInterop: true,
+		skipLibCheck: true,
+		forceConsistentCasingInFileNames: true,
+		resolveJsonModule: true,
+		noLib: true,
+	};
+
+	try {
+		// ユーザープロジェクトのtsconfig.jsonを読み込み
+		const tsconfigPath = path.join(userProjectRoot, "tsconfig.json");
+		if (fs.existsSync(tsconfigPath)) {
+			const tsconfigContent = fs.readFileSync(tsconfigPath, "utf8");
+			// JSONコメントを削除してからパース
+			const cleanedContent = tsconfigContent.replace(
+				/\/\*[\s\S]*?\*\/|\/\/.*$/gm,
+				"",
+			);
+			const tsconfigJson = JSON.parse(cleanedContent);
+
+			// TypeScriptの公式APIを使用して安全にcompilerOptionsを変換
+			if (tsconfigJson.compilerOptions) {
+				const { options, errors } = ts.convertCompilerOptionsFromJson(
+					tsconfigJson.compilerOptions,
+					userProjectRoot,
+				);
+
+				if (errors.length > 0) {
+					console.warn(
+						"TypeScript compiler options conversion errors:",
+						errors.map((e) => e.messageText),
+					);
+				}
+
+				// ベースオプションとユーザーオプションをマージ
+				baseCompilerOptions = {
+					...baseCompilerOptions,
+					...options,
+					noLib: true, // 常にnoLib: trueにして制御下に置く
+				};
+			}
+		}
+	} catch (error) {
+		console.warn("Failed to read tsconfig.json:", error);
+	}
+
+	return baseCompilerOptions;
+}
+
+/**
+ * import pathを実際のファイルパスに解決
+ */
+function resolveImportPath(
+	importPath: string,
+	fromFile: string,
+	_projectRoot: string,
+): string | null {
+	if (importPath.startsWith("./") || importPath.startsWith("../")) {
+		// 相対パス
+		const baseDir = path.dirname(fromFile);
+		const fullPath = path.resolve(baseDir, importPath);
+
+		// .ts拡張子を試す
+		const tsPath = `${fullPath}.ts`;
+		if (fs.existsSync(tsPath)) {
+			return tsPath;
+		}
+
+		// 元のパスをそのまま返す（存在しない場合はnull）
+		return fs.existsSync(fullPath) ? fullPath : null;
+	}
+
+	// node_modules からの解決はサポートしない
+	return null;
+}
 
 export class TypeScriptToAiScriptTranspiler {
 	#transpiler: BaseTranspiler;
@@ -44,31 +135,31 @@ export class TypeScriptToAiScriptTranspiler {
 		this.#transpiler = transpiler;
 	}
 
-	transpile(sourceCode: string, userProjectRoot?: string): Ast.Node[] {
-		return this.#transpiler.transpile(sourceCode, userProjectRoot);
-	}
-
 	transpileFile(entryFilePath: string, userProjectRoot?: string): Ast.Node[] {
-		return this.#transpiler.transpileFile(entryFilePath, userProjectRoot);
+		const projectRoot = userProjectRoot || path.dirname(entryFilePath);
+
+		const compilerOptions = loadCompilerOptions(projectRoot);
+		const program = ts.createProgram([entryFilePath], compilerOptions);
+		const entrySourceFile = program.getSourceFile(entryFilePath);
+		if (!entrySourceFile) {
+			throw new Error(`Entry file not found: ${entryFilePath}`);
+		}
+
+		return this.#transpiler.transpileProgram(program, entrySourceFile);
 	}
 
-	static transpile(sourceCode: string, userProjectRoot?: string): Ast.Node[] {
-		const transpiler = new TypeScriptToAiScriptTranspiler();
-		return transpiler.transpile(sourceCode, userProjectRoot);
+	transpileProgram(
+		program: ts.Program,
+		entrySourceFile: ts.SourceFile,
+	): Ast.Node[] {
+		return this.#transpiler.transpileProgram(program, entrySourceFile);
 	}
 
-	static transpileFile(entryFilePath: string, userProjectRoot?: string): Ast.Node[] {
+	static transpileFile(
+		entryFilePath: string,
+		userProjectRoot?: string,
+	): Ast.Node[] {
 		const transpiler = new TypeScriptToAiScriptTranspiler();
 		return transpiler.transpileFile(entryFilePath, userProjectRoot);
-	}
-
-	transpileAndStringify(sourceCode: string, userProjectRoot?: string): string {
-		const result = this.transpile(sourceCode, userProjectRoot);
-		return AiScriptStringifier.stringify(result);
-	}
-
-	transpileFileAndStringify(entryFilePath: string, userProjectRoot?: string): string {
-		const result = this.transpileFile(entryFilePath, userProjectRoot);
-		return AiScriptStringifier.stringify(result);
 	}
 }

@@ -5,7 +5,7 @@ import { convertBindingNameArg } from "../utils/destructuring.js";
 export class FunctionsPlugin extends TranspilerPlugin {
     tryConvertStatementAsStatements = (node) => {
         if (ts.isFunctionDeclaration(node)) {
-            return [this.convertFunctionDeclaration(node)];
+            return this.convertFunctionDeclaration(node);
         }
     };
     tryConvertExpressionAsExpression = (node) => {
@@ -14,12 +14,19 @@ export class FunctionsPlugin extends TranspilerPlugin {
         }
     };
     convertFunctionDeclaration(node) {
+        if (this.hasDeclareModifier(node)) {
+            return [];
+        }
         const name = node.name?.text || "";
         if (name && node.name) {
             this.converter.validateVariableName(name, node.name);
         }
         else {
             this.converter.throwError("関数名がありません", node);
+        }
+        // export修飾子があれば、exportリストに追加
+        if (this.hasExportModifier(node)) {
+            this.converter.addExport(name);
         }
         const { params, destructuringStatements } = this.processParameters(node.parameters);
         const body = [];
@@ -29,20 +36,22 @@ export class FunctionsPlugin extends TranspilerPlugin {
         // 分割代入の展開文を関数の最初に追加
         const finalBody = [...destructuringStatements, ...body];
         // AiScript形式の関数定義: @name(params) { ... }
-        return {
-            type: "def",
-            dest: { type: "identifier", name, loc: dummyLoc },
-            expr: {
-                type: "fn",
-                typeParams: [],
-                params: params,
-                children: finalBody,
+        return [
+            {
+                type: "def",
+                dest: { type: "identifier", name, loc: dummyLoc },
+                expr: {
+                    type: "fn",
+                    typeParams: [],
+                    params: params,
+                    children: finalBody,
+                    loc: dummyLoc,
+                },
+                mut: false,
+                attr: [],
                 loc: dummyLoc,
             },
-            mut: false,
-            attr: [],
-            loc: dummyLoc,
-        };
+        ];
     }
     convertInlineFunction(node) {
         const { params, destructuringStatements } = this.processParameters(node.parameters);
@@ -94,6 +103,20 @@ export class FunctionsPlugin extends TranspilerPlugin {
             _paramIndex++;
         }
         return { params, destructuringStatements };
+    }
+    hasExportModifier(node) {
+        return (ts.canHaveModifiers(node) &&
+            (ts
+                .getModifiers(node)
+                ?.some((mod) => mod.kind === ts.SyntaxKind.ExportKeyword) ??
+                false));
+    }
+    hasDeclareModifier(node) {
+        return (ts.canHaveModifiers(node) &&
+            (ts
+                .getModifiers(node)
+                ?.some((mod) => mod.kind === ts.SyntaxKind.DeclareKeyword) ??
+                false));
     }
 }
 //# sourceMappingURL=functions.js.map

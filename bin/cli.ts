@@ -112,9 +112,8 @@ async function deploy(
 		const transpiler = new TypeScriptToAiScriptTranspiler();
 		const result = transpiler.transpileFile(entryPath, process.cwd());
 		const aiScript = AiScriptStringifier.stringify(result);
-
 		console.log(`🔧 Play更新中 ${entryFile}...`);
-		await fetch(`https://${domain}/api/flash/update`, {
+		const res = await fetch(`https://${domain}/api/flash/update`, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
@@ -125,14 +124,15 @@ async function deploy(
 				script: aiScript,
 			}),
 		});
-
-		aiScript;
+		if (!res.ok) {
+			console.log(await res.json());
+		}
 	} catch (error) {
 		console.error("❌ Transpilation failed:");
 		if (error instanceof Error) {
-			console.error(error.message);
+			console.error(error, error.message);
 		} else {
-			console.error(String(error));
+			console.error(error, String(error));
 		}
 		process.exit(1);
 	}

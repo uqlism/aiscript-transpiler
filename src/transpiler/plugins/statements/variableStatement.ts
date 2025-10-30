@@ -16,6 +16,10 @@ export class VariableStatementPlugin extends TranspilerPlugin {
 	private convertVariableStatements(
 		node: ts.VariableStatement,
 	): Ast.Statement[] {
+		if (this.hasDeclareModifier(node)) {
+			return [];
+		}
+
 		const definitions: Ast.Statement[] = [];
 
 		// export修飾子があるかチェック
@@ -85,7 +89,22 @@ export class VariableStatementPlugin extends TranspilerPlugin {
 	}
 
 	private hasExportModifier(node: ts.Node): boolean {
-		return ts.canHaveModifiers(node) &&
-			   (ts.getModifiers(node)?.some((mod) => mod.kind === ts.SyntaxKind.ExportKeyword) ?? false);
+		return (
+			ts.canHaveModifiers(node) &&
+			(ts
+				.getModifiers(node)
+				?.some((mod) => mod.kind === ts.SyntaxKind.ExportKeyword) ??
+				false)
+		);
+	}
+
+	private hasDeclareModifier(node: ts.Node): boolean {
+		return (
+			ts.canHaveModifiers(node) &&
+			(ts
+				.getModifiers(node)
+				?.some((mod) => mod.kind === ts.SyntaxKind.DeclareKeyword) ??
+				false)
+		);
 	}
 }
