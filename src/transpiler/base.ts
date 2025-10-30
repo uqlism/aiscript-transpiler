@@ -332,7 +332,7 @@ export class Transpiler {
 			processedFiles.add(filePath);
 
 			try {
-				const sourceCode = require("node:fs").readFileSync(filePath, "utf8");
+				const sourceCode = fs.readFileSync(filePath, "utf8");
 				const sourceFile = ts.createSourceFile(
 					filePath,
 					sourceCode,
@@ -408,7 +408,6 @@ export class Transpiler {
 		host: ts.CompilerHost,
 		modulePathToId: Map<string, Ast.Identifier>,
 	): Ast.Node[] {
-		const fs = require("node:fs");
 		const sourceCode = fs.readFileSync(filePath, "utf8");
 		const sourceFile = ts.createSourceFile(
 			filePath,
@@ -419,7 +418,7 @@ export class Transpiler {
 
 		const program = ts.createProgram([filePath], compilerOptions, host);
 		const typeChecker = program.getTypeChecker();
-		const projectRoot = require("node:path").dirname(filePath);
+		const projectRoot = path.dirname(filePath);
 
 		const plugins: TranspilerPlugin[] = [];
 		const moduleRefs = new Map<string, Ast.Identifier>();
