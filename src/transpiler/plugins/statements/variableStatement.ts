@@ -18,6 +18,9 @@ export class VariableStatementPlugin extends TranspilerPlugin {
 	): Ast.Statement[] {
 		const definitions: Ast.Statement[] = [];
 
+		// export修飾子があるかチェック
+		const hasExportModifier = this.hasExportModifier(node);
+
 		for (const declaration of node.declarationList.declarations) {
 			if (!declaration.initializer) {
 				this.converter.throwError("変数宣言には初期値が必要です", declaration);
@@ -32,6 +35,12 @@ export class VariableStatementPlugin extends TranspilerPlugin {
 			if (ts.isIdentifier(nameNode)) {
 				// 単純な変数宣言: let x = value
 				this.converter.validateVariableName(nameNode.text, nameNode);
+
+				// export修飾子があれば、exportリストに追加
+				if (hasExportModifier) {
+					this.converter.addExport(nameNode.text);
+				}
+
 				definitions.push({
 					type: "def",
 					dest: { type: "identifier", name: nameNode.text, loc: dummyLoc },
@@ -73,5 +82,10 @@ export class VariableStatementPlugin extends TranspilerPlugin {
 		}
 
 		return definitions;
+	}
+
+	private hasExportModifier(node: ts.Node): boolean {
+		return ts.canHaveModifiers(node) &&
+			   (ts.getModifiers(node)?.some((mod) => mod.kind === ts.SyntaxKind.ExportKeyword) ?? false);
 	}
 }

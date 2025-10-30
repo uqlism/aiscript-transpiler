@@ -33,6 +33,11 @@ export class FunctionsPlugin extends TranspilerPlugin {
 			this.converter.throwError("関数名がありません", node);
 		}
 
+		// export修飾子があれば、exportリストに追加
+		if (this.hasExportModifier(node)) {
+			this.converter.addExport(name);
+		}
+
 		const { params, destructuringStatements } = this.processParameters(
 			node.parameters,
 		);
@@ -131,5 +136,10 @@ export class FunctionsPlugin extends TranspilerPlugin {
 		}
 
 		return { params, destructuringStatements };
+	}
+
+	private hasExportModifier(node: ts.Node): boolean {
+		return ts.canHaveModifiers(node) &&
+			   (ts.getModifiers(node)?.some((mod) => mod.kind === ts.SyntaxKind.ExportKeyword) ?? false);
 	}
 }
