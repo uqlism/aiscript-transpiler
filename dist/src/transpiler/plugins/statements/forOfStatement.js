@@ -11,7 +11,7 @@ export class ForOfStatementPlugin extends TranspilerPlugin {
     };
     convertForOfStatement(node) {
         // 配列型チェックを追加（util関数を直接使用）
-        validateArrayExpression(node.expression, this.converter.typeChecker);
+        validateArrayExpression(node.expression, this.converter);
         const iterable = this.converter.convertExpressionAsExpression(node.expression);
         const bodyStatements = this.converter.convertStatementAsStatements(node.statement);
         if (!ts.isVariableDeclarationList(node.initializer)) {

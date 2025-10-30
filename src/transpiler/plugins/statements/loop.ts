@@ -82,7 +82,7 @@ export class LoopStatementsPlugin extends TranspilerPlugin {
 
 		// 条件チェック（条件がfalseならbreak）
 		if (node.condition) {
-			validateBooleanExpression(node.condition, this.converter.typeChecker);
+			validateBooleanExpression(node.condition, this.converter);
 			const condition = this.converter.convertExpressionAsExpression(
 				node.condition,
 			);
@@ -131,7 +131,7 @@ export class LoopStatementsPlugin extends TranspilerPlugin {
 	}
 
 	private convertWhileStatement(node: ts.WhileStatement): Ast.Loop {
-		validateBooleanExpression(node.expression, this.converter.typeChecker);
+		validateBooleanExpression(node.expression, this.converter);
 		const condition = this.converter.convertExpressionAsExpression(
 			node.expression,
 		);
@@ -168,7 +168,7 @@ export class LoopStatementsPlugin extends TranspilerPlugin {
 	}
 
 	private convertDoWhileStatement(node: ts.DoStatement): Ast.Loop {
-		validateBooleanExpression(node.expression, this.converter.typeChecker);
+		validateBooleanExpression(node.expression, this.converter);
 		const condition = this.converter.convertExpressionAsExpression(
 			node.expression,
 		);

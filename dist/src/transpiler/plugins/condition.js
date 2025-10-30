@@ -14,7 +14,7 @@ export class ConditionPlugin extends TranspilerPlugin {
         }
     };
     convertConditionalExpression(node) {
-        validateBooleanExpression(node.condition, this.converter.typeChecker);
+        validateBooleanExpression(node.condition, this.converter);
         const cond = this.converter.convertExpressionAsExpression(node.condition);
         const then = this.converter.convertExpressionAsExpression(node.whenTrue);
         const elseif = [];
@@ -23,7 +23,7 @@ export class ConditionPlugin extends TranspilerPlugin {
         while (current) {
             if (ts.isConditionalExpression(current)) {
                 // else if
-                validateBooleanExpression(current.condition, this.converter.typeChecker);
+                validateBooleanExpression(current.condition, this.converter);
                 const elifCond = this.converter.convertExpressionAsExpression(current.condition);
                 const elifThen = this.converter.convertExpressionAsExpression(current.whenTrue);
                 // biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
@@ -39,7 +39,7 @@ export class ConditionPlugin extends TranspilerPlugin {
         return { type: "if", cond, then, elseif, else: elseClause, loc: dummyLoc };
     }
     convertIfStatement(node) {
-        validateBooleanExpression(node.expression, this.converter.typeChecker);
+        validateBooleanExpression(node.expression, this.converter);
         const cond = this.converter.convertExpressionAsExpression(node.expression);
         const then = this.convertStatementOrExpression(node.thenStatement);
         const elseif = [];
@@ -48,7 +48,7 @@ export class ConditionPlugin extends TranspilerPlugin {
         while (current) {
             if (ts.isIfStatement(current)) {
                 // else if
-                validateBooleanExpression(current.expression, this.converter.typeChecker);
+                validateBooleanExpression(current.expression, this.converter);
                 const elifCond = this.converter.convertExpressionAsExpression(current.expression);
                 const elifThen = this.convertStatementOrExpression(current.thenStatement);
                 // biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property

@@ -34,7 +34,7 @@ export class ExpressionsPlugin extends TranspilerPlugin {
         return this.converter.convertExpressionAsExpression(node.expression);
     }
     convertConditionalExpression(node) {
-        validateBooleanExpression(node.condition, this.converter.typeChecker);
+        validateBooleanExpression(node.condition, this.converter);
         const cond = this.converter.convertExpressionAsExpression(node.condition);
         const then = this.converter.convertExpressionAsExpression(node.whenTrue);
         const elseif = [];
@@ -43,7 +43,7 @@ export class ExpressionsPlugin extends TranspilerPlugin {
         while (current) {
             if (ts.isConditionalExpression(current)) {
                 // else if
-                validateBooleanExpression(current.condition, this.converter.typeChecker);
+                validateBooleanExpression(current.condition, this.converter);
                 const elifCond = this.converter.convertExpressionAsExpression(current.condition);
                 const elifThen = this.converter.convertExpressionAsExpression(current.whenTrue);
                 // biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property

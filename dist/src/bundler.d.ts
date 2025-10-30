@@ -7,9 +7,9 @@ export declare class BundlerError extends Error {
     sourceFile: string;
     line: number;
     column: number;
-    originalStatement?: ts.Statement | undefined;
+    originalStatement?: ts.Node | undefined;
     cause?: Error | undefined;
-    constructor(message: string, sourceFile: string, line: number, column: number, originalStatement?: ts.Statement | undefined, cause?: Error | undefined);
+    constructor(message: string, sourceFile: string, line: number, column: number, originalStatement?: ts.Node | undefined, cause?: Error | undefined);
 }
 /**
  * エクスポート情報
@@ -145,9 +145,13 @@ export declare class AiScriptBundler {
      */
     private generateAiScript;
     /**
-     * すべてのステートメントを結合した単一のTypeScriptコードを生成
+     * Source Map情報と共にコードを結合
      */
-    private combineAllStatements;
+    private combineAllStatementsWithSourceMap;
+    /**
+     * バンドル後の行番号から元の位置情報を取得
+     */
+    private mapToOriginalLocation;
     /**
      * 処理順序を決定（トポロジカルソート簡易版）
      */

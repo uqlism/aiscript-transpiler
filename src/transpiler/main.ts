@@ -1,4 +1,5 @@
 import type { Ast } from "@syuilo/aiscript";
+import ts from "typescript";
 import { AiScriptStringifier } from "../stringifier.js";
 import { Transpiler as BaseTranspiler } from "./base.js";
 import { ConditionPlugin } from "./plugins/condition.js";
@@ -40,6 +41,7 @@ export class TypeScriptToAiScriptTranspiler {
 	transpile(sourceCode: string, userProjectRoot?: string): Ast.Node[] {
 		return this.#transpiler.transpile(sourceCode, userProjectRoot);
 	}
+
 
 	static transpile(sourceCode: string, userProjectRoot?: string): Ast.Node[] {
 		const transpiler = new TypeScriptToAiScriptTranspiler();

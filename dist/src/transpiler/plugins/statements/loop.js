@@ -60,7 +60,7 @@ export class LoopStatementsPlugin extends TranspilerPlugin {
         const loopBody = [];
         // 条件チェック（条件がfalseならbreak）
         if (node.condition) {
-            validateBooleanExpression(node.condition, this.converter.typeChecker);
+            validateBooleanExpression(node.condition, this.converter);
             const condition = this.converter.convertExpressionAsExpression(node.condition);
             const ifStatement = {
                 type: "if",
@@ -99,7 +99,7 @@ export class LoopStatementsPlugin extends TranspilerPlugin {
             : { type: "block", statements: evalBody, loc: dummyLoc };
     }
     convertWhileStatement(node) {
-        validateBooleanExpression(node.expression, this.converter.typeChecker);
+        validateBooleanExpression(node.expression, this.converter);
         const condition = this.converter.convertExpressionAsExpression(node.expression);
         const body = node.statement
             ? this.convertStatementToStatements(node.statement)
@@ -130,7 +130,7 @@ export class LoopStatementsPlugin extends TranspilerPlugin {
         };
     }
     convertDoWhileStatement(node) {
-        validateBooleanExpression(node.expression, this.converter.typeChecker);
+        validateBooleanExpression(node.expression, this.converter);
         const condition = this.converter.convertExpressionAsExpression(node.expression);
         const body = this.convertStatementToStatements(node.statement);
         const loopBody = [];

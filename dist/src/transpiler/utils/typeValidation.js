@@ -2,23 +2,23 @@ import ts from "typescript";
 /**
  * boolean型の式かどうかを検証する
  */
-export function validateBooleanExpression(expr, typeChecker) {
-    if (!isBooleanLike(expr, typeChecker)) {
-        const type = typeChecker.getTypeAtLocation(expr);
-        const typeString = typeChecker.typeToString(type);
-        throw new Error(`boolean型である必要があります。現在の型: ${typeString} at ${expr.getSourceFile()?.fileName}:${expr.getStart()}`);
+export function validateBooleanExpression(expr, context) {
+    if (!isBooleanLike(expr, context.typeChecker)) {
+        const type = context.typeChecker.getTypeAtLocation(expr);
+        const typeString = context.typeChecker.typeToString(type);
+        context.throwError(`boolean型である必要があります。現在の型: ${typeString}`, expr);
     }
 }
 /**
  * 配列型の式かどうかを検証する
  */
-export function validateArrayExpression(expr, typeChecker) {
-    const type = typeChecker.getTypeAtLocation(expr);
-    const typeString = typeChecker.typeToString(type);
+export function validateArrayExpression(expr, context) {
+    const type = context.typeChecker.getTypeAtLocation(expr);
+    const typeString = context.typeChecker.typeToString(type);
     // TypeScriptの組み込み配列型チェック
-    if (!isArrayLike(expr, typeChecker)) {
+    if (!isArrayLike(expr, context.typeChecker)) {
         // 配列型でない場合はエラー
-        throw new Error(`配列型である必要があります。現在の型: ${typeString} at ${expr.getSourceFile()?.fileName}:${expr.getStart()}`);
+        context.throwError(`配列型である必要があります。現在の型: ${typeString}`, expr);
     }
 }
 /**
@@ -49,27 +49,27 @@ function isInControlFlowContext(expr) {
  * 要素アクセス式の型を検証する
  * Array[number] と Object[string] のみ許可
  */
-export function validateElementAccess(targetExpr, indexExpr, typeChecker) {
-    const targetType = typeChecker.getTypeAtLocation(targetExpr);
-    const indexType = typeChecker.getTypeAtLocation(indexExpr);
-    const targetTypeString = typeChecker.typeToString(targetType);
-    const indexTypeString = typeChecker.typeToString(indexType);
+export function validateElementAccess(targetExpr, indexExpr, context) {
+    const targetType = context.typeChecker.getTypeAtLocation(targetExpr);
+    const indexType = context.typeChecker.getTypeAtLocation(indexExpr);
+    const targetTypeString = context.typeChecker.typeToString(targetType);
+    const indexTypeString = context.typeChecker.typeToString(indexType);
     // 配列型の場合、インデックスはnumber型である必要がある
-    if (isArrayLike(targetExpr, typeChecker)) {
-        if (!isNumberLike(indexExpr, typeChecker)) {
-            throw new Error(`配列のインデックスはnumber型である必要があります。現在のインデックス型: ${targetTypeString}[${indexTypeString}] at ${indexExpr.getSourceFile()?.fileName}:${indexExpr.getStart()}`);
+    if (isArrayLike(targetExpr, context.typeChecker)) {
+        if (!isNumberLike(indexExpr, context.typeChecker)) {
+            context.throwError(`配列のインデックスはnumber型である必要があります。現在のインデックス型: ${targetTypeString}[${indexTypeString}]`, indexExpr);
         }
         return;
     }
     // オブジェクト型の場合、インデックスはstring型である必要がある
     if (targetType.flags & ts.TypeFlags.Object) {
-        if (!isStringLike(indexExpr, typeChecker)) {
-            throw new Error(`オブジェクトのインデックスはstring型である必要があります。現在のインデックス型: ${targetTypeString}[${indexTypeString}] at ${indexExpr.getSourceFile()?.fileName}:${indexExpr.getStart()}`);
+        if (!isStringLike(indexExpr, context.typeChecker)) {
+            context.throwError(`オブジェクトのインデックスはstring型である必要があります。現在のインデックス型: ${targetTypeString}[${indexTypeString}]`, indexExpr);
         }
         return;
     }
     // 配列でもオブジェクトでもない場合はエラー
-    throw new Error(`要素アクセスは配列またはオブジェクトに対してのみ使用できます。現在の型: (${targetTypeString})[${indexTypeString}] at ${targetExpr.getSourceFile()?.fileName}:${targetExpr.getStart()}`);
+    context.throwError(`要素アクセスは配列またはオブジェクトに対してのみ使用できます。現在の型: (${targetTypeString})[${indexTypeString}]`, targetExpr);
 }
 /**
  * boolean型に代入可能な式かどうかを判定する

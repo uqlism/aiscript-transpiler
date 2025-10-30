@@ -22,7 +22,7 @@ export class ConditionPlugin extends TranspilerPlugin {
 	};
 
 	private convertConditionalExpression(node: ts.ConditionalExpression): Ast.If {
-		validateBooleanExpression(node.condition, this.converter.typeChecker);
+		validateBooleanExpression(node.condition, this.converter);
 		const cond = this.converter.convertExpressionAsExpression(node.condition);
 		const then = this.converter.convertExpressionAsExpression(node.whenTrue);
 
@@ -35,7 +35,7 @@ export class ConditionPlugin extends TranspilerPlugin {
 				// else if
 				validateBooleanExpression(
 					current.condition,
-					this.converter.typeChecker,
+					this.converter,
 				);
 				const elifCond = this.converter.convertExpressionAsExpression(
 					current.condition,
@@ -57,7 +57,7 @@ export class ConditionPlugin extends TranspilerPlugin {
 	}
 
 	private convertIfStatement(node: ts.IfStatement): Ast.If {
-		validateBooleanExpression(node.expression, this.converter.typeChecker);
+		validateBooleanExpression(node.expression, this.converter);
 		const cond = this.converter.convertExpressionAsExpression(node.expression);
 		const then = this.convertStatementOrExpression(node.thenStatement);
 
@@ -70,7 +70,7 @@ export class ConditionPlugin extends TranspilerPlugin {
 				// else if
 				validateBooleanExpression(
 					current.expression,
-					this.converter.typeChecker,
+					this.converter,
 				);
 				const elifCond = this.converter.convertExpressionAsExpression(
 					current.expression,

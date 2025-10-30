@@ -16,7 +16,7 @@ export class ForOfStatementPlugin extends TranspilerPlugin {
 
 	private convertForOfStatement(node: ts.ForOfStatement): Ast.Each {
 		// 配列型チェックを追加（util関数を直接使用）
-		validateArrayExpression(node.expression, this.converter.typeChecker);
+		validateArrayExpression(node.expression, this.converter);
 		const iterable = this.converter.convertExpressionAsExpression(
 			node.expression,
 		);

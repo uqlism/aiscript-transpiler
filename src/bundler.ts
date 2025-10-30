@@ -14,7 +14,7 @@ export class BundlerError extends Error {
 		public sourceFile: string,
 		public line: number,
 		public column: number,
-		public originalStatement?: ts.Statement,
+		public originalStatement?: ts.Node,
 		public override cause?: Error,
 	) {
 		super(`${message} at ${sourceFile}:${line}:${column}`);
@@ -590,26 +590,30 @@ export class AiScriptBundler {
 	private generateAiScript(): Ast.Node[] {
 		const transpiler = new TypeScriptToAiScriptTranspiler();
 
-		// すべてのステートメントを結合してから一括でトランスパイル
-		const combinedCode = this.combineAllStatements();
+		// すべてのステートメントを結合してから一括でトランスパイル（Source Map方式）
+		const { combinedCode, sourceMap } = this.combineAllStatementsWithSourceMap();
+
 
 		try {
 			return transpiler.transpile(combinedCode);
 		} catch (error) {
 			if (error instanceof TranspilerError) {
-				// 結合されたコードでのエラーの場合、可能な限り元の位置情報を復元
+				// Source Mapを使って元の位置情報を復元
+				const position = error.getPosition();
+				const originalLocation = this.mapToOriginalLocation(position.startLine, sourceMap);
+
 				throw new BundlerError(
-					`Error transpiling bundled code: ${error.message}`,
-					"bundled",
-					error.getPosition().startLine,
-					error.getPosition().startColumn,
-					undefined,
+					`Error transpiling statement: ${error.message}`,
+					originalLocation.fileName,
+					originalLocation.line,
+					originalLocation.column,
+					error.node,
 					error,
 				);
 			} else {
 				throw new BundlerError(
 					`Error transpiling bundled code: ${error instanceof Error ? error.message : String(error)}`,
-					"bundled",
+					"unknown",
 					1,
 					1,
 					undefined,
@@ -620,11 +624,27 @@ export class AiScriptBundler {
 	}
 
 	/**
-	 * すべてのステートメントを結合した単一のTypeScriptコードを生成
+	 * Source Map情報と共にコードを結合
 	 */
-	private combineAllStatements(): string {
+	private combineAllStatementsWithSourceMap(): {
+		combinedCode: string;
+		sourceMap: Array<{
+			bundledLine: number;
+			fileName: string;
+			originalLine: number;
+			originalColumn: number;
+		}>;
+	} {
 		const processedModules = this.getProcessingOrder();
 		const statements: string[] = [];
+		const sourceMap: Array<{
+			bundledLine: number;
+			fileName: string;
+			originalLine: number;
+			originalColumn: number;
+		}> = [];
+
+		let currentBundledLine = 1;
 
 		for (const filePath of processedModules) {
 			const moduleInfo = this.modules.get(filePath);
@@ -650,12 +670,74 @@ export class AiScriptBundler {
 				// 変数リネームを適用
 				statementText = this.applyVariableRenames(statementText, statement);
 
+				// ステートメントの元の位置情報を取得
+				const sourceFile = statement.getSourceFile();
+				const start = sourceFile.getLineAndCharacterOfPosition(statement.getStart());
+
+				// Source Map情報を記録
+				sourceMap.push({
+					bundledLine: currentBundledLine,
+					fileName: filePath,
+					originalLine: start.line + 1, // TypeScriptは0ベースなので+1
+					originalColumn: start.character + 1,
+				});
+
 				statements.push(statementText);
+				// 改行の数を正確にカウント（最後が空行でない場合を考慮）
+				const newlineCount = (statementText.match(/\n/g) || []).length;
+				currentBundledLine += newlineCount + 1;
 			}
 		}
 
-		return statements.join("\n");
+		return {
+			combinedCode: statements.join("\n"),
+			sourceMap,
+		};
 	}
+
+	/**
+	 * バンドル後の行番号から元の位置情報を取得
+	 */
+	private mapToOriginalLocation(
+		bundledLine: number,
+		sourceMap: Array<{
+			bundledLine: number;
+			fileName: string;
+			originalLine: number;
+			originalColumn: number;
+		}>
+	): { fileName: string; line: number; column: number } {
+		// 該当する行を探す（逆順で最初に見つかったものが正解）
+		let bestMatch: typeof sourceMap[0] | null = null;
+		for (let i = sourceMap.length - 1; i >= 0; i--) {
+			const mapping = sourceMap[i];
+			if (mapping && mapping.bundledLine <= bundledLine) {
+				bestMatch = mapping;
+				break;
+			}
+		}
+
+		if (bestMatch) {
+			// バンドル内での相対位置を計算
+			const lineOffset = bundledLine - bestMatch.bundledLine;
+			const mappedLine = bestMatch.originalLine + lineOffset - 1; // 1行補正
+
+
+			return {
+				fileName: bestMatch.fileName,
+				line: mappedLine,
+				column: bestMatch.originalColumn,
+			};
+		}
+
+		// 見つからない場合はデフォルト値
+		return {
+			fileName: "unknown",
+			line: 1,
+			column: 1,
+		};
+	}
+
 
 	/**
 	 * 処理順序を決定（トポロジカルソート簡易版）

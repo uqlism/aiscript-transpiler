@@ -1,3 +1,4 @@
+import ts from "typescript";
 import { AiScriptStringifier } from "../stringifier.js";
 import { Transpiler as BaseTranspiler } from "./base.js";
 import { ConditionPlugin } from "./plugins/condition.js";

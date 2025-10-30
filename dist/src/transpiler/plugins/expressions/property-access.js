@@ -52,7 +52,7 @@ export class PropertyAccessPlugin extends TranspilerPlugin {
         if (!node.argumentExpression) {
             this.converter.throwError("配列アクセスにはインデックスが必要です", node);
         }
-        validateElementAccess(node.expression, node.argumentExpression, this.converter.typeChecker);
+        validateElementAccess(node.expression, node.argumentExpression, this.converter);
         const target = this.converter.convertExpressionAsExpression(node.expression);
         const index = this.converter.convertExpressionAsExpression(node.argumentExpression);
         return {

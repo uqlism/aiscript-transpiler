@@ -100,6 +100,7 @@ export class Transpiler {
 
 		return { compilerOptions: baseCompilerOptions };
 	}
+
 	transpile(sourceCode: string, userProjectRoot?: string) {
 		const sourceFile = ts.createSourceFile(
 			"main.ts",

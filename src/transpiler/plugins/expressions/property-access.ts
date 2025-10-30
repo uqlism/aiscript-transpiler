@@ -68,7 +68,7 @@ export class PropertyAccessPlugin extends TranspilerPlugin {
 		validateElementAccess(
 			node.expression,
 			node.argumentExpression,
-			this.converter.typeChecker,
+			this.converter,
 		);
 		const target = this.converter.convertExpressionAsExpression(
 			node.expression,
