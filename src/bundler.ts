@@ -600,7 +600,11 @@ export class AiScriptBundler {
 			if (error instanceof TranspilerError) {
 				// Source Mapを使って元の位置情報を復元
 				const position = error.getPosition();
-				const originalLocation = this.mapToOriginalLocation(position.startLine, sourceMap);
+				const originalLocation = this.mapToOriginalLocation(
+					position.startLine,
+					sourceMap,
+					position.startColumn
+				);
 
 				throw new BundlerError(
 					`Error transpiling statement: ${error.message}`,
@@ -630,21 +634,28 @@ export class AiScriptBundler {
 		combinedCode: string;
 		sourceMap: Array<{
 			bundledLine: number;
+			bundledCharOffset: number;
 			fileName: string;
 			originalLine: number;
 			originalColumn: number;
+			originalText: string;
+			columnOffset: number; // export削除等による列位置のずれ
 		}>;
 	} {
 		const processedModules = this.getProcessingOrder();
 		const statements: string[] = [];
 		const sourceMap: Array<{
 			bundledLine: number;
+			bundledCharOffset: number;
 			fileName: string;
 			originalLine: number;
 			originalColumn: number;
+			originalText: string;
+			columnOffset: number;
 		}> = [];
 
 		let currentBundledLine = 1;
+		let currentCharOffset = 0;
 
 		for (const filePath of processedModules) {
 			const moduleInfo = this.modules.get(filePath);
@@ -660,14 +671,20 @@ export class AiScriptBundler {
 				}
 
 				// 文のテキストを取得してexport修飾子を除去
-				let statementText = statement.getFullText().trim();
+				const originalText = statement.getFullText().trim();
+				let statementText = originalText;
+				let columnOffset = 0; // 変換による列位置のずれを追跡
 
 				// export修飾子がある場合は除去
 				if (statementText.startsWith("export ")) {
-					statementText = statementText.replace(/^export\s+/, "");
+					const exportMatch = statementText.match(/^export\s+/);
+					if (exportMatch) {
+						columnOffset = exportMatch[0].length; // exportで削除された文字数
+						statementText = statementText.replace(/^export\s+/, "");
+					}
 				}
 
-				// 変数リネームを適用
+				// 変数リネームを適用（さらなるオフセットは複雑なので今は保留）
 				statementText = this.applyVariableRenames(statementText, statement);
 
 				// ステートメントの元の位置情報を取得
@@ -677,15 +694,20 @@ export class AiScriptBundler {
 				// Source Map情報を記録
 				sourceMap.push({
 					bundledLine: currentBundledLine,
+					bundledCharOffset: currentCharOffset,
 					fileName: filePath,
 					originalLine: start.line + 1, // TypeScriptは0ベースなので+1
 					originalColumn: start.character + 1,
+					originalText: statementText,
+					columnOffset: columnOffset,
 				});
 
 				statements.push(statementText);
 				// 改行の数を正確にカウント（最後が空行でない場合を考慮）
 				const newlineCount = (statementText.match(/\n/g) || []).length;
 				currentBundledLine += newlineCount + 1;
+				// 文字オフセットを更新（改行文字も含む）
+				currentCharOffset += statementText.length + 1; // +1 for newline
 			}
 		}
 
@@ -702,10 +724,14 @@ export class AiScriptBundler {
 		bundledLine: number,
 		sourceMap: Array<{
 			bundledLine: number;
+			bundledCharOffset: number;
 			fileName: string;
 			originalLine: number;
 			originalColumn: number;
-		}>
+			originalText: string;
+			columnOffset: number;
+		}>,
+		bundledColumn?: number,
 	): { fileName: string; line: number; column: number } {
 		// 該当する行を探す（逆順で最初に見つかったものが正解）
 		let bestMatch: typeof sourceMap[0] | null = null;
@@ -718,15 +744,23 @@ export class AiScriptBundler {
 		}
 
 		if (bestMatch) {
-			// バンドル内での相対位置を計算
 			const lineOffset = bundledLine - bestMatch.bundledLine;
-			const mappedLine = bestMatch.originalLine + lineOffset - 1; // 1行補正
+			let mappedLine = bestMatch.originalLine + lineOffset - 1; // 1行補正
+			let mappedColumn = bestMatch.originalColumn;
 
+			// 列位置が指定されている場合、より正確な位置を計算
+			if (bundledColumn !== undefined && lineOffset === 0) {
+				// 同じ行内のエラーの場合、export削除等のオフセットを考慮
+				mappedColumn = bestMatch.originalColumn + (bundledColumn - 1) + bestMatch.columnOffset;
+			} else if (bundledColumn !== undefined && lineOffset > 0) {
+				// 異なる行の場合、その行の先頭からの位置（オフセットは無関係）
+				mappedColumn = bundledColumn;
+			}
 
 			return {
 				fileName: bestMatch.fileName,
 				line: mappedLine,
-				column: bestMatch.originalColumn,
+				column: mappedColumn,
 			};
 		}
 
