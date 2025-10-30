@@ -85,7 +85,12 @@ export class Transpiler {
         host.getSourceFile = (fileName, ...args) => fileName === "main.ts" ? sourceFile : getSourceFile(fileName, ...args);
         const fileExists = host.fileExists;
         host.fileExists = (fileName) => fileName === "main.ts" || fileExists(fileName);
-        const program = ts.createProgram(["main.ts"], compilerOptions, host);
+        const program = ts.createProgram([
+            "main.ts",
+            ...(compilerOptions.types?.map((x) => typeof require !== "undefined"
+                ? require?.resolve(x) /** Nodejs用 */
+                : import.meta.resolve(x) /** Bun用 */) ?? []),
+        ], compilerOptions, host);
         const typeChecker = program.getTypeChecker();
         const plugins = [];
         let uniqueIdCounter = 0;

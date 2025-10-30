@@ -36,3 +36,5 @@ test-files
 
 # generated AiScript files
 *.ais
+
+/inspect

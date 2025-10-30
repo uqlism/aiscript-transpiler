@@ -7,23 +7,12 @@ export function validateBooleanExpression(
 	expr: ts.Expression,
 	typeChecker: ts.TypeChecker,
 ): void {
-	const type = typeChecker.getTypeAtLocation(expr);
-	const typeString = typeChecker.typeToString(type);
-
-	// boolean型以外の場合はエラー
-	if (
-		!(type.flags & ts.TypeFlags.Boolean) &&
-		!(type.flags & ts.TypeFlags.BooleanLiteral)
-	) {
-		// ただし、any型やunknown型は許可する（型情報が不完全な場合）
-		if (
-			!(type.flags & ts.TypeFlags.Any) &&
-			!(type.flags & ts.TypeFlags.Unknown)
-		) {
-			throw new Error(
-				`if文の条件式はboolean型である必要があります。現在の型: ${typeString} at ${expr.getSourceFile()?.fileName}:${expr.getStart()}`,
-			);
-		}
+	if (!isBooleanLike(expr, typeChecker)) {
+		const type = typeChecker.getTypeAtLocation(expr);
+		const typeString = typeChecker.typeToString(type);
+		throw new Error(
+			`boolean型である必要があります。現在の型: ${typeString} at ${expr.getSourceFile()?.fileName}:${expr.getStart()}`,
+		);
 	}
 }
 
@@ -37,38 +26,13 @@ export function validateArrayExpression(
 	const type = typeChecker.getTypeAtLocation(expr);
 	const typeString = typeChecker.typeToString(type);
 
-	// any型やunknown型は許可する（型情報が不完全な場合）
-	if (type.flags & ts.TypeFlags.Any || type.flags & ts.TypeFlags.Unknown) {
-		return;
-	}
-
-	// 配列リテラルは常に許可
-	if (ts.isArrayLiteralExpression(expr)) {
-		return;
-	}
-
 	// TypeScriptの組み込み配列型チェック
-	if (typeChecker.isArrayType(type)) {
-		return;
-	}
-
-	// タプル型チェック
-	if (typeChecker.isTupleType?.(type)) {
-		return;
-	}
-
-	// 複雑な型（Mapped Type、Conditional Typeなど）の場合は警告
-	if (isComplexType(typeString)) {
-		console.warn(
-			`警告: for-of文の右辺の型が複雑で検証できません。実行時に配列であることを確認してください。型: ${typeString} at ${expr.getSourceFile()?.fileName}:${expr.getStart()}`,
+	if (!isArrayLike(expr, typeChecker)) {
+		// 配列型でない場合はエラー
+		throw new Error(
+			`配列型である必要があります。現在の型: ${typeString} at ${expr.getSourceFile()?.fileName}:${expr.getStart()}`,
 		);
-		return;
 	}
-
-	// 配列型でない場合はエラー
-	throw new Error(
-		`for-of文の右辺は配列型である必要があります。現在の型: ${typeString} at ${expr.getSourceFile()?.fileName}:${expr.getStart()}`,
-	);
 }
 
 /**
@@ -113,47 +77,11 @@ export function validateElementAccess(
 	const targetTypeString = typeChecker.typeToString(targetType);
 	const indexTypeString = typeChecker.typeToString(indexType);
 
-	// any型やunknown型は許可する（型情報が不完全な場合）
-	if (
-		targetType.flags & ts.TypeFlags.Any ||
-		targetType.flags & ts.TypeFlags.Unknown ||
-		indexType.flags & ts.TypeFlags.Any ||
-		indexType.flags & ts.TypeFlags.Unknown
-	) {
-		return;
-	}
-
-	// Union型の場合、すべてのメンバーが配列型かチェック
-	if (targetType.flags & ts.TypeFlags.Union) {
-		const unionType = targetType as ts.UnionType;
-		const allArray = unionType.types.every(
-			(type) =>
-				typeChecker.isArrayType(type) || typeChecker.isTupleType?.(type),
-		);
-		if (allArray) {
-			if (
-				!(indexType.flags & ts.TypeFlags.Number) &&
-				!(indexType.flags & ts.TypeFlags.NumberLiteral)
-			) {
-				throw new Error(
-					`配列のインデックスはnumber型である必要があります。現在のインデックス型: ${indexTypeString} at ${indexExpr.getSourceFile()?.fileName}:${indexExpr.getStart()}`,
-				);
-			}
-			return;
-		}
-	}
-
 	// 配列型の場合、インデックスはnumber型である必要がある
-	if (
-		typeChecker.isArrayType(targetType) ||
-		typeChecker.isTupleType?.(targetType)
-	) {
-		if (
-			!(indexType.flags & ts.TypeFlags.Number) &&
-			!(indexType.flags & ts.TypeFlags.NumberLiteral)
-		) {
+	if (isArrayLike(targetExpr, typeChecker)) {
+		if (!isNumberLike(indexExpr, typeChecker)) {
 			throw new Error(
-				`配列のインデックスはnumber型である必要があります。現在のインデックス型: ${indexTypeString} at ${indexExpr.getSourceFile()?.fileName}:${indexExpr.getStart()}`,
+				`配列のインデックスはnumber型である必要があります。現在のインデックス型: ${targetTypeString}[${indexTypeString}] at ${indexExpr.getSourceFile()?.fileName}:${indexExpr.getStart()}`,
 			);
 		}
 		return;
@@ -161,33 +89,65 @@ export function validateElementAccess(
 
 	// オブジェクト型の場合、インデックスはstring型である必要がある
 	if (targetType.flags & ts.TypeFlags.Object) {
-		if (
-			!(indexType.flags & ts.TypeFlags.String) &&
-			!(indexType.flags & ts.TypeFlags.StringLiteral)
-		) {
+		if (!isStringLike(indexExpr, typeChecker)) {
 			throw new Error(
-				`オブジェクトのインデックスはstring型である必要があります。現在のインデックス型: ${indexTypeString} at ${indexExpr.getSourceFile()?.fileName}:${indexExpr.getStart()}`,
+				`オブジェクトのインデックスはstring型である必要があります。現在のインデックス型: ${targetTypeString}[${indexTypeString}] at ${indexExpr.getSourceFile()?.fileName}:${indexExpr.getStart()}`,
 			);
 		}
 		return;
 	}
 
-	// 複雑な型やType Guardによる型絞り込みの場合は警告
-	if (
-		isComplexType(targetTypeString) ||
-		isComplexType(indexTypeString) ||
-		targetTypeString.includes("&") ||
-		targetTypeString.includes("|") ||
-		isInControlFlowContext(targetExpr)
-	) {
-		console.warn(
-			`警告: 要素アクセスの型が複雑で検証できません。実行時に適切な型であることを確認してください。ターゲット型: ${targetTypeString}, インデックス型: ${indexTypeString} at ${targetExpr.getSourceFile()?.fileName}:${targetExpr.getStart()}`,
-		);
-		return;
-	}
-
 	// 配列でもオブジェクトでもない場合はエラー
 	throw new Error(
-		`要素アクセスは配列またはオブジェクトに対してのみ使用できます。現在の型: ${targetTypeString} at ${targetExpr.getSourceFile()?.fileName}:${targetExpr.getStart()}`,
+		`要素アクセスは配列またはオブジェクトに対してのみ使用できます。現在の型: (${targetTypeString})[${indexTypeString}] at ${targetExpr.getSourceFile()?.fileName}:${targetExpr.getStart()}`,
 	);
+}
+
+/**
+ * boolean型に代入可能な式かどうかを判定する
+ */
+function isBooleanLike(
+	expr: ts.Expression,
+	typeChecker: ts.TypeChecker,
+): boolean {
+	return typeChecker.isTypeAssignableTo(
+		typeChecker.getTypeAtLocation(expr),
+		typeChecker.getBooleanType(),
+	);
+}
+
+/**
+ * number型に代入可能な式かどうかを判定する
+ */
+function isNumberLike(
+	expr: ts.Expression,
+	typeChecker: ts.TypeChecker,
+): boolean {
+	return typeChecker.isTypeAssignableTo(
+		typeChecker.getTypeAtLocation(expr),
+		typeChecker.getNumberType(),
+	);
+}
+
+/**
+ * string型に代入可能な式かどうかを判定する
+ */
+function isStringLike(
+	expr: ts.Expression,
+	typeChecker: ts.TypeChecker,
+): boolean {
+	return typeChecker.isTypeAssignableTo(
+		typeChecker.getTypeAtLocation(expr),
+		typeChecker.getStringType(),
+	);
+}
+
+/**
+ * 配列型の式かどうかを判定する
+ */
+function isArrayLike(
+	expr: ts.Expression,
+	typeChecker: ts.TypeChecker,
+): boolean {
+	return typeChecker.isArrayLikeType(typeChecker.getTypeAtLocation(expr));
 }

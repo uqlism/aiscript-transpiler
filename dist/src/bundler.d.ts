@@ -145,6 +145,10 @@ export declare class AiScriptBundler {
      */
     private generateAiScript;
     /**
+     * すべてのステートメントを結合した単一のTypeScriptコードを生成
+     */
+    private combineAllStatements;
+    /**
      * 処理順序を決定（トポロジカルソート簡易版）
      */
     private getProcessingOrder;

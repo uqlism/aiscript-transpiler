@@ -435,15 +435,32 @@ export class AiScriptBundler {
      * AiScriptコードを生成
      */
     generateAiScript() {
-        const result = [];
         const transpiler = new TypeScriptToAiScriptTranspiler();
-        // トポロジカルソート順にモジュールを処理
+        // すべてのステートメントを結合してから一括でトランスパイル
+        const combinedCode = this.combineAllStatements();
+        try {
+            return transpiler.transpile(combinedCode);
+        }
+        catch (error) {
+            if (error instanceof TranspilerError) {
+                // 結合されたコードでのエラーの場合、可能な限り元の位置情報を復元
+                throw new BundlerError(`Error transpiling bundled code: ${error.message}`, "bundled", error.getPosition().startLine, error.getPosition().startColumn, undefined, error);
+            }
+            else {
+                throw new BundlerError(`Error transpiling bundled code: ${error instanceof Error ? error.message : String(error)}`, "bundled", 1, 1, undefined, error instanceof Error ? error : undefined);
+            }
+        }
+    }
+    /**
+     * すべてのステートメントを結合した単一のTypeScriptコードを生成
+     */
+    combineAllStatements() {
         const processedModules = this.getProcessingOrder();
+        const statements = [];
         for (const filePath of processedModules) {
             const moduleInfo = this.modules.get(filePath);
             if (!moduleInfo)
                 continue;
-            // 各文とそのコンテキストを同時に処理
             for (let i = 0; i < moduleInfo.statements.length; i++) {
                 const statement = moduleInfo.statements[i];
                 const context = moduleInfo.statementContexts[i];
@@ -451,34 +468,18 @@ export class AiScriptBundler {
                 if (!statement || !context) {
                     continue;
                 }
-                try {
-                    // 文のテキストを取得してexport修飾子を除去
-                    let statementText = statement.getFullText().trim();
-                    // export修飾子がある場合は除去
-                    if (statementText.startsWith("export ")) {
-                        statementText = statementText.replace(/^export\s+/, "");
-                    }
-                    // 変数リネームを適用
-                    statementText = this.applyVariableRenames(statementText, statement);
-                    const tsCode = statementText;
-                    const converted = transpiler.transpile(tsCode);
-                    result.push(...converted);
+                // 文のテキストを取得してexport修飾子を除去
+                let statementText = statement.getFullText().trim();
+                // export修飾子がある場合は除去
+                if (statementText.startsWith("export ")) {
+                    statementText = statementText.replace(/^export\s+/, "");
                 }
-                catch (error) {
-                    if (error instanceof TranspilerError) {
-                        // TranspilerErrorの場合、実際のエラー位置を使用
-                        const position = error.getPosition();
-                        throw new BundlerError(`Error transpiling statement: ${error.message}`, context.sourceFile, context.startLine + position.startLine - 1, // statementの開始行 + エラー行の相対位置
-                        position.startColumn, statement, error);
-                    }
-                    else {
-                        // 元のファイルの位置情報を含むエラーを投げる
-                        throw new BundlerError(`Error transpiling statement: ${error instanceof Error ? error.message : String(error)}`, context.sourceFile, context.startLine, context.startColumn, statement, error instanceof Error ? error : undefined);
-                    }
-                }
+                // 変数リネームを適用
+                statementText = this.applyVariableRenames(statementText, statement);
+                statements.push(statementText);
             }
         }
-        return result;
+        return statements.join("\n");
     }
     /**
      * 処理順序を決定（トポロジカルソート簡易版）
