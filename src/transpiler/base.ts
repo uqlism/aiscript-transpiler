@@ -377,8 +377,6 @@ export class Transpiler {
 		fromFile: string,
 		_projectRoot: string,
 	): string | null {
-		const path = require("node:path");
-		const fs = require("node:fs");
 
 		if (importPath.startsWith("./") || importPath.startsWith("../")) {
 			// 相対パス
