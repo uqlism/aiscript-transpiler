@@ -59,10 +59,7 @@ export class ExpressionsPlugin extends TranspilerPlugin {
 		while (current) {
 			if (ts.isConditionalExpression(current)) {
 				// else if
-				validateBooleanExpression(
-					current.condition,
-					this.converter,
-				);
+				validateBooleanExpression(current.condition, this.converter);
 				const elifCond = this.converter.convertExpressionAsExpression(
 					current.condition,
 				);

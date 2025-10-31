@@ -41,7 +41,7 @@ export function validateArrayExpression(
 /**
  * 複雑な型（Mapped Type、Conditional Type等）かどうかを判定
  */
-function isComplexType(typeString: string): boolean {
+function _isComplexType(typeString: string): boolean {
 	// Mapped Type, Conditional Type, Index Access Type等のパターン
 	return /\[.*in.*\]|<.*>.*\?.*:|\[.*keyof.*\]|infer\s+\w+/.test(typeString);
 }
@@ -49,7 +49,7 @@ function isComplexType(typeString: string): boolean {
 /**
  * Type Guardや制御フロー分析の文脈かどうかを判定
  */
-function isInControlFlowContext(expr: ts.Expression): boolean {
+function _isInControlFlowContext(expr: ts.Expression): boolean {
 	let parent = expr.parent;
 
 	// if文の中にいるかチェック

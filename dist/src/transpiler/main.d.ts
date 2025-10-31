@@ -5,6 +5,5 @@ export declare class TypeScriptToAiScriptTranspiler {
     constructor();
     transpileFile(entryFilePath: string, userProjectRoot?: string): Ast.Node[];
     transpileProgram(program: ts.Program, entrySourceFile: ts.SourceFile): Ast.Node[];
-    static transpileFile(entryFilePath: string, userProjectRoot?: string): Ast.Node[];
 }
 //# sourceMappingURL=main.d.ts.map

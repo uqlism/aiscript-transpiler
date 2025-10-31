@@ -2,9 +2,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { env } from "node:process";
-import { TypeScriptToAiScriptTranspiler } from "../src/transpiler/main.js";
-import { AiScriptStringifier } from "../src/stringifier.js";
 import { program } from "commander";
+import { AiScriptStringifier } from "../src/stringifier.js";
+import { TypeScriptToAiScriptTranspiler } from "../src/transpiler/main.js";
 program
     .command("transpile")
     .description("tsファイルをaisに変換")

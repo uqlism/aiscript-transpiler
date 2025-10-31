@@ -11,24 +11,17 @@ export class ExportStatementPlugin extends TranspilerPlugin {
 		}
 	};
 
-
 	private convertExportDeclaration(
 		node: ts.ExportDeclaration,
 	): (Ast.Expression | Ast.Statement)[] {
 		if (node.moduleSpecifier) {
 			// Re-export: export { foo } from "./module"
-			this.converter.throwError(
-				"Re-exports are not supported yet",
-				node,
-			);
+			this.converter.throwError("Re-exports are not supported yet", node);
 		}
 
 		if (!node.exportClause) {
 			// export * from "./module"
-			this.converter.throwError(
-				"Export all (*) is not supported",
-				node,
-			);
+			this.converter.throwError("Export all (*) is not supported", node);
 		}
 
 		if (ts.isNamedExports(node.exportClause)) {

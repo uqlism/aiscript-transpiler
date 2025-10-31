@@ -1,11 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import assert from "node:assert";
-import { TypeScriptToAiScriptTranspiler } from "./src/transpiler/main";
-import { TranspilerError } from "./src/transpiler/base";
-import ts from "typescript";
-import fs from "fs";
-import { AiScriptStringifier } from "./src/stringifier";
+import fs from "node:fs";
 import { Parser } from "@syuilo/aiscript";
+import ts from "typescript";
+import { AiScriptStringifier } from "./src/stringifier";
+import { TranspilerError } from "./src/transpiler/base";
+import { TypeScriptToAiScriptTranspiler } from "./src/transpiler/main";
 
 const testCases = [
 	{
@@ -297,7 +296,7 @@ function transpile(modules: { [key: string]: string }) {
 		types: ["aiscript.d.ts"],
 	};
 
-	const files = {
+	const files: { [key: string]: ts.SourceFile } = {
 		...Object.fromEntries(
 			Object.entries(modules).map(([k, v]) => [
 				`${k}.ts`,
@@ -312,7 +311,7 @@ function transpile(modules: { [key: string]: string }) {
 		),
 	};
 
-	const raws = {
+	const raws: { [key: string]: string } = {
 		...Object.fromEntries(
 			Object.entries(modules).map(([k, v]) => [`${k}.ts`, v]),
 		),
@@ -320,7 +319,7 @@ function transpile(modules: { [key: string]: string }) {
 	};
 
 	const program = ts.createProgram(Object.keys(files), compilerOptions, {
-		getSourceFile: (fileName) => (files as any)[fileName],
+		getSourceFile: (fileName) => files[fileName],
 		writeFile: () => {},
 		getCurrentDirectory: () => process.cwd(),
 		getDirectories: () => [],

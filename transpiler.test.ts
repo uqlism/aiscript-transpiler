@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
+import fs from "node:fs";
 import { type Ast, Parser } from "@syuilo/aiscript";
+import ts from "typescript";
 import { TypeScriptToAiScriptTranspiler } from "./src/index.ts";
 import { AiScriptStringifier } from "./src/stringifier.ts";
-import ts from "typescript";
-import fs from "fs";
 
 const testcases = [
 	{
@@ -525,7 +525,7 @@ function transpile(value: string) {
 			getCurrentDirectory: () => process.cwd(),
 			getDirectories: () => [],
 			fileExists: (fileName) => fileName in files,
-			readFile: (fileName) => undefined,
+			readFile: (_fileName) => undefined,
 			getCanonicalFileName: (fileName) => fileName,
 			useCaseSensitiveFileNames: () => true,
 			getNewLine: () => "\n",
@@ -579,10 +579,10 @@ function expectSameNode(node1: Ast.Node[], node2: Ast.Node[]) {
 			return null;
 		}
 		if (node instanceof Map) {
-			return new Map(node.entries().map(([k, v]) => [k, removeLoc(v)]));
+			return new Map([...node.entries()].map(([k, v]) => [k, removeLoc(v)]));
 		}
 		if (node instanceof Set) {
-			return new Set(node.values().map((v) => removeLoc(v)));
+			return new Set([...node.values()].map((v) => removeLoc(v)));
 		}
 		if (typeof node === "object") {
 			return Object.fromEntries(

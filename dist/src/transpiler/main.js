@@ -1,7 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as ts from "typescript";
-import { AiScriptStringifier } from "../stringifier.js";
 import { Transpiler as BaseTranspiler } from "./base.js";
 import { ConditionPlugin } from "./plugins/condition.js";
 import { BinaryExpressionPlugin } from "./plugins/expressions/binaryExpression.js";
@@ -10,8 +9,8 @@ import { LiteralPlugin } from "./plugins/expressions/literals.js";
 import { PropertyAccessPlugin } from "./plugins/expressions/property-access.js";
 import { UnaryExpressionPlugin } from "./plugins/expressions/unaryExpression.js";
 import { FunctionsPlugin } from "./plugins/functions.js";
-import { ExpressionStatementPlugin } from "./plugins/statements/expressionStatement.js";
 import { ExportStatementPlugin } from "./plugins/statements/exportStatement.js";
+import { ExpressionStatementPlugin } from "./plugins/statements/expressionStatement.js";
 import { ForOfStatementPlugin } from "./plugins/statements/forOfStatement.js";
 import { ImportStatementPlugin } from "./plugins/statements/importStatement.js";
 import { LoopStatementsPlugin } from "./plugins/statements/loop.js";
@@ -67,25 +66,6 @@ function loadCompilerOptions(userProjectRoot) {
     }
     return baseCompilerOptions;
 }
-/**
- * import pathを実際のファイルパスに解決
- */
-function resolveImportPath(importPath, fromFile, _projectRoot) {
-    if (importPath.startsWith("./") || importPath.startsWith("../")) {
-        // 相対パス
-        const baseDir = path.dirname(fromFile);
-        const fullPath = path.resolve(baseDir, importPath);
-        // .ts拡張子を試す
-        const tsPath = `${fullPath}.ts`;
-        if (fs.existsSync(tsPath)) {
-            return tsPath;
-        }
-        // 元のパスをそのまま返す（存在しない場合はnull）
-        return fs.existsSync(fullPath) ? fullPath : null;
-    }
-    // node_modules からの解決はサポートしない
-    return null;
-}
 export class TypeScriptToAiScriptTranspiler {
     #transpiler;
     constructor() {
@@ -121,10 +101,6 @@ export class TypeScriptToAiScriptTranspiler {
     }
     transpileProgram(program, entrySourceFile) {
         return this.#transpiler.transpileProgram(program, entrySourceFile);
-    }
-    static transpileFile(entryFilePath, userProjectRoot) {
-        const transpiler = new TypeScriptToAiScriptTranspiler();
-        return transpiler.transpileFile(entryFilePath, userProjectRoot);
     }
 }
 //# sourceMappingURL=main.js.map

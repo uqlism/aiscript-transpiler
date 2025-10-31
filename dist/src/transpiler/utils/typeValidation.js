@@ -24,14 +24,14 @@ export function validateArrayExpression(expr, context) {
 /**
  * 複雑な型（Mapped Type、Conditional Type等）かどうかを判定
  */
-function isComplexType(typeString) {
+function _isComplexType(typeString) {
     // Mapped Type, Conditional Type, Index Access Type等のパターン
     return /\[.*in.*\]|<.*>.*\?.*:|\[.*keyof.*\]|infer\s+\w+/.test(typeString);
 }
 /**
  * Type Guardや制御フロー分析の文脈かどうかを判定
  */
-function isInControlFlowContext(expr) {
+function _isInControlFlowContext(expr) {
     let parent = expr.parent;
     // if文の中にいるかチェック
     while (parent) {

@@ -35,7 +35,10 @@ export class ImportStatementPlugin extends TranspilerPlugin {
 		const statements: (Ast.Expression | Ast.Statement)[] = [];
 
 		// Named imports: import { foo, bar } from "./module"
-		if (node.importClause.namedBindings && ts.isNamedImports(node.importClause.namedBindings)) {
+		if (
+			node.importClause.namedBindings &&
+			ts.isNamedImports(node.importClause.namedBindings)
+		) {
 			for (const element of node.importClause.namedBindings.elements) {
 				const importedName = element.propertyName?.text || element.name.text;
 				const localName = element.name.text;
@@ -81,9 +84,15 @@ export class ImportStatementPlugin extends TranspilerPlugin {
 		}
 
 		// Namespace import: import * as foo from "./module"
-		if (node.importClause.namedBindings && ts.isNamespaceImport(node.importClause.namedBindings)) {
+		if (
+			node.importClause.namedBindings &&
+			ts.isNamespaceImport(node.importClause.namedBindings)
+		) {
 			const localName = node.importClause.namedBindings.name.text;
-			this.converter.validateVariableName(localName, node.importClause.namedBindings.name);
+			this.converter.validateVariableName(
+				localName,
+				node.importClause.namedBindings.name,
+			);
 
 			// const localName = moduleRef
 			statements.push({

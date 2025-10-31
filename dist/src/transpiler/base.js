@@ -115,7 +115,7 @@ export class Transpiler {
                 }
                 throw new Error(`Module not found for import path: ${importPath}`);
             },
-            addExport: (name) => {
+            addExport: (_name) => {
                 throw new Error("");
             },
             throwError: (message, node) => {
