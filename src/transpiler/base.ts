@@ -53,6 +53,7 @@ export class Transpiler {
 	transpileProgram(
 		program: ts.Program,
 		entrySourceFile: ts.SourceFile,
+		doTypeCheck = true,
 	): Ast.Node[] {
 		/**
 		 * グローバルなユニークID生成器
@@ -131,6 +132,7 @@ export class Transpiler {
 				);
 			},
 			typeChecker: typeChecker,
+			doTypeCheck: doTypeCheck,
 			getUniqueIdentifier,
 			getModuleRef: (importPath: string): Ast.Identifier => {
 				// TypeScriptのコンパイラAPIを使用してモジュール解決
@@ -274,6 +276,7 @@ export type TranspilerContext = {
 	validateVariableName(name: string, node: ts.Node): void;
 	throwError(message: string, node: ts.Node): never;
 	typeChecker: ts.TypeChecker;
+	doTypeCheck: boolean;
 
 	// モジュール関連
 	getModuleRef(importPath: string): Ast.Identifier;

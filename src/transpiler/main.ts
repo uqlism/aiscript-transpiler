@@ -107,7 +107,11 @@ export class TypeScriptToAiScriptTranspiler {
 		this.#transpiler = transpiler;
 	}
 
-	transpileFile(entryFilePath: string, userProjectRoot?: string): Ast.Node[] {
+	transpileFile(
+		entryFilePath: string,
+		userProjectRoot?: string,
+		doTypeCheck = true,
+	): Ast.Node[] {
 		const projectRoot = userProjectRoot || path.dirname(entryFilePath);
 
 		const compilerOptions = loadCompilerOptions(projectRoot);
@@ -117,13 +121,22 @@ export class TypeScriptToAiScriptTranspiler {
 			throw new Error(`Entry file not found: ${entryFilePath}`);
 		}
 
-		return this.#transpiler.transpileProgram(program, entrySourceFile);
+		return this.#transpiler.transpileProgram(
+			program,
+			entrySourceFile,
+			doTypeCheck,
+		);
 	}
 
 	transpileProgram(
 		program: ts.Program,
 		entrySourceFile: ts.SourceFile,
+		doTypeCheck = true,
 	): Ast.Node[] {
-		return this.#transpiler.transpileProgram(program, entrySourceFile);
+		return this.#transpiler.transpileProgram(
+			program,
+			entrySourceFile,
+			doTypeCheck,
+		);
 	}
 }

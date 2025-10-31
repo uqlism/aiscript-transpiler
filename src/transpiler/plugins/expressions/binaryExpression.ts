@@ -6,6 +6,10 @@ import {
 	convertArrayAssignment,
 	convertObjectAssignment,
 } from "../../utils/destructuring.js";
+import {
+	validateBooleanLike,
+	validateNumberLike,
+} from "../../utils/typeValidation.js";
 
 export class BinaryExpressionPlugin extends TranspilerPlugin {
 	override tryConvertExpressionAsExpression = (
@@ -240,59 +244,29 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
 
 		if (arithmeticOperators.includes(node.operatorToken.kind)) {
 			// 算術演算の場合、両オペランドがNumber型である必要がある
-			if (!this.isNumberLike(node.left)) {
-				const leftType = this.converter.typeChecker.getTypeAtLocation(
-					node.left,
-				);
-				this.converter.throwError(
-					`算術演算子 '${node.operatorToken.getText()}' の左オペランドはNumber型である必要があります（現在の型: ${this.converter.typeChecker.typeToString(leftType)}）`,
-					node.left,
-				);
-			}
-			if (!this.isNumberLike(node.right)) {
-				const rightType = this.converter.typeChecker.getTypeAtLocation(
-					node.right,
-				);
-				this.converter.throwError(
-					`算術演算子 '${node.operatorToken.getText()}' の右オペランドはNumber型である必要があります（現在の型: ${this.converter.typeChecker.typeToString(rightType)}）`,
-					node.right,
-				);
-			}
+			validateNumberLike(
+				node.left,
+				this.converter,
+				`算術演算子 '${node.operatorToken.getText()}' の左オペランドはNumber型である必要があります`,
+			);
+			validateNumberLike(
+				node.right,
+				this.converter,
+				`算術演算子 '${node.operatorToken.getText()}' の右オペランドはNumber型である必要があります`,
+			);
 		} else if (logicalOperators.includes(node.operatorToken.kind)) {
 			// 論理演算の場合、両オペランドがBoolean型である必要がある
-			if (!this.isBooleanLike(node.left)) {
-				const leftType = this.converter.typeChecker.getTypeAtLocation(
-					node.left,
-				);
-				this.converter.throwError(
-					`論理演算子 '${node.operatorToken.getText()}' の左オペランドはBoolean型である必要があります（現在の型: ${this.converter.typeChecker.typeToString(leftType)}）`,
-					node.left,
-				);
-			}
-			if (!this.isBooleanLike(node.right)) {
-				const rightType = this.converter.typeChecker.getTypeAtLocation(
-					node.right,
-				);
-				this.converter.throwError(
-					`論理演算子 '${node.operatorToken.getText()}' の右オペランドはBoolean型である必要があります（現在の型: ${this.converter.typeChecker.typeToString(rightType)}）`,
-					node.right,
-				);
-			}
+			validateBooleanLike(
+				node.left,
+				this.converter,
+				`論理演算子 '${node.operatorToken.getText()}' の左オペランドはBoolean型である必要があります`,
+			);
+			validateBooleanLike(
+				node.right,
+				this.converter,
+				`論理演算子 '${node.operatorToken.getText()}' の右オペランドはBoolean型である必要があります`,
+			);
 		}
-	}
-
-	private isNumberLike(expr: ts.Expression): boolean {
-		return this.converter.typeChecker.isTypeAssignableTo(
-			this.converter.typeChecker.getTypeAtLocation(expr),
-			this.converter.typeChecker.getNumberType(),
-		);
-	}
-
-	private isBooleanLike(expr: ts.Expression): boolean {
-		return this.converter.typeChecker.isTypeAssignableTo(
-			this.converter.typeChecker.getTypeAtLocation(expr),
-			this.converter.typeChecker.getBooleanType(),
-		);
 	}
 
 	private validateAssignmentOperationTypes(node: ts.BinaryExpression): void {
@@ -314,44 +288,28 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
 
 		if (arithmeticAssignmentOperators.includes(node.operatorToken.kind)) {
 			// 算術代入演算の場合、両オペランドがNumber型である必要がある
-			if (!this.isNumberLike(node.left)) {
-				const leftType = this.converter.typeChecker.getTypeAtLocation(
-					node.left,
-				);
-				this.converter.throwError(
-					`算術代入演算子 '${node.operatorToken.getText()}' の左オペランドはNumber型である必要があります（現在の型: ${this.converter.typeChecker.typeToString(leftType)}）`,
-					node.left,
-				);
-			}
-			if (!this.isNumberLike(node.right)) {
-				const rightType = this.converter.typeChecker.getTypeAtLocation(
-					node.right,
-				);
-				this.converter.throwError(
-					`算術代入演算子 '${node.operatorToken.getText()}' の右オペランドはNumber型である必要があります（現在の型: ${this.converter.typeChecker.typeToString(rightType)}）`,
-					node.right,
-				);
-			}
+			validateNumberLike(
+				node.left,
+				this.converter,
+				`算術代入演算子 '${node.operatorToken.getText()}' の左オペランドはNumber型である必要があります`,
+			);
+			validateNumberLike(
+				node.right,
+				this.converter,
+				`算術代入演算子 '${node.operatorToken.getText()}' の右オペランドはNumber型である必要があります`,
+			);
 		} else if (logicalAssignmentOperators.includes(node.operatorToken.kind)) {
 			// 論理代入演算の場合、両オペランドがBoolean型である必要がある
-			if (!this.isBooleanLike(node.left)) {
-				const leftType = this.converter.typeChecker.getTypeAtLocation(
-					node.left,
-				);
-				this.converter.throwError(
-					`論理代入演算子 '${node.operatorToken.getText()}' の左オペランドはBoolean型である必要があります（現在の型: ${this.converter.typeChecker.typeToString(leftType)}）`,
-					node.left,
-				);
-			}
-			if (!this.isBooleanLike(node.right)) {
-				const rightType = this.converter.typeChecker.getTypeAtLocation(
-					node.right,
-				);
-				this.converter.throwError(
-					`論理代入演算子 '${node.operatorToken.getText()}' の右オペランドはBoolean型である必要があります（現在の型: ${this.converter.typeChecker.typeToString(rightType)}）`,
-					node.right,
-				);
-			}
+			validateBooleanLike(
+				node.left,
+				this.converter,
+				`論理代入演算子 '${node.operatorToken.getText()}' の左オペランドはBoolean型である必要があります`,
+			);
+			validateBooleanLike(
+				node.right,
+				this.converter,
+				`論理代入演算子 '${node.operatorToken.getText()}' の右オペランドはBoolean型である必要があります`,
+			);
 		}
 	}
 }

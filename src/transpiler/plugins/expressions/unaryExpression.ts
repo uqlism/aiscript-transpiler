@@ -2,6 +2,10 @@ import type { Ast } from "@syuilo/aiscript";
 import ts from "typescript";
 import { TranspilerPlugin } from "../../base.js";
 import { dummyLoc } from "../../consts.js";
+import {
+	validateBooleanLike,
+	validateNumberLike,
+} from "../../utils/typeValidation.js";
 
 export class UnaryExpressionPlugin extends TranspilerPlugin {
 	override tryConvertExpressionAsExpression = (
@@ -171,73 +175,45 @@ export class UnaryExpressionPlugin extends TranspilerPlugin {
 			case ts.SyntaxKind.PlusToken:
 			case ts.SyntaxKind.MinusToken:
 				// +, - 演算子はNumber型が必要
-				if (!this.isNumberLike(node.operand)) {
-					const operandType = this.converter.typeChecker.getTypeAtLocation(
-						node.operand,
-					);
-					this.converter.throwError(
-						`単項算術演算子 '${ts.tokenToString(node.operator)}' のオペランドはNumber型である必要があります（現在の型: ${this.converter.typeChecker.typeToString(operandType)}）`,
-						node.operand,
-					);
-				}
+				validateNumberLike(
+					node.operand,
+					this.converter,
+					`単項算術演算子 '${ts.tokenToString(node.operator)}' のオペランドはNumber型である必要があります`,
+				);
 				break;
 			case ts.SyntaxKind.ExclamationToken:
 				// ! 演算子はBoolean型が必要
-				if (!this.isBooleanLike(node.operand)) {
-					const operandType = this.converter.typeChecker.getTypeAtLocation(
-						node.operand,
-					);
-					this.converter.throwError(
-						`論理否定演算子 '!' のオペランドはBoolean型である必要があります（現在の型: ${this.converter.typeChecker.typeToString(operandType)}）`,
-						node.operand,
-					);
-				}
+				validateBooleanLike(
+					node.operand,
+					this.converter,
+					`論理否定演算子 '!' のオペランドはBoolean型である必要があります`,
+				);
 				break;
 			case ts.SyntaxKind.PlusPlusToken:
 			case ts.SyntaxKind.MinusMinusToken:
 				// ++, -- 演算子はNumber型が必要
-				if (!this.isNumberLike(node.operand)) {
-					const operandType = this.converter.typeChecker.getTypeAtLocation(
-						node.operand,
-					);
-					this.converter.throwError(
-						`単項増減演算子 '${ts.tokenToString(node.operator)}' のオペランドはNumber型である必要があります（現在の型: ${this.converter.typeChecker.typeToString(operandType)}）`,
-						node.operand,
-					);
-				}
+				validateNumberLike(
+					node.operand,
+					this.converter,
+					`単項増減演算子 '${ts.tokenToString(node.operator)}' のオペランドはNumber型である必要があります`,
+				);
 				break;
 		}
 	}
 
-	private validatePostfixUnaryOperationTypes(node: ts.PostfixUnaryExpression): void {
+	private validatePostfixUnaryOperationTypes(
+		node: ts.PostfixUnaryExpression,
+	): void {
 		switch (node.operator) {
 			case ts.SyntaxKind.PlusPlusToken:
 			case ts.SyntaxKind.MinusMinusToken:
 				// ++, -- 演算子はNumber型が必要
-				if (!this.isNumberLike(node.operand)) {
-					const operandType = this.converter.typeChecker.getTypeAtLocation(
-						node.operand,
-					);
-					this.converter.throwError(
-						`後置増減演算子 '${ts.tokenToString(node.operator)}' のオペランドはNumber型である必要があります（現在の型: ${this.converter.typeChecker.typeToString(operandType)}）`,
-						node.operand,
-					);
-				}
+				validateNumberLike(
+					node.operand,
+					this.converter,
+					`後置増減演算子 '${ts.tokenToString(node.operator)}' のオペランドはNumber型である必要があります`,
+				);
 				break;
 		}
-	}
-
-	private isNumberLike(expr: ts.Expression): boolean {
-		return this.converter.typeChecker.isTypeAssignableTo(
-			this.converter.typeChecker.getTypeAtLocation(expr),
-			this.converter.typeChecker.getNumberType(),
-		);
-	}
-
-	private isBooleanLike(expr: ts.Expression): boolean {
-		return this.converter.typeChecker.isTypeAssignableTo(
-			this.converter.typeChecker.getTypeAtLocation(expr),
-			this.converter.typeChecker.getBooleanType(),
-		);
 	}
 }

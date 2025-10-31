@@ -119,6 +119,22 @@ const testCases = [
       `,
 		},
 		expected: `
+let __gen_00001 = eval {
+  let BASE_VALUE = __gen_00002.BASE_VALUE
+  let MIDDLE_VALUE = (BASE_VALUE * 2)
+  @getBase() {
+    return BASE_VALUE
+  }
+  ({MIDDLE_VALUE: MIDDLE_VALUE, getBase: getBase})
+}
+let __gen_00002 = eval {
+  let BASE_VALUE = 10
+  ({BASE_VALUE: BASE_VALUE})
+}
+let MIDDLE_VALUE = __gen_00001.MIDDLE_VALUE
+let getBase = __gen_00001.getBase
+let result = (MIDDLE_VALUE + getBase())
+console.log(result)
     `,
 	},
 	{
@@ -145,6 +161,22 @@ const testCases = [
       `,
 		},
 		expected: `
+let __gen_00001 = eval {
+  @add(a, b) {
+    return (a + b)
+  }
+  @subtract(a, b) {
+    return (a - b)
+  }
+  ({add: add, subtract: subtract})
+}
+let add = __gen_00001.add
+let subtract = __gen_00001.subtract
+let x = 10
+let y = 5
+let sum = add(x, y)
+let diff = subtract(x, y)
+console.log(sum, diff)
     `,
 	},
 ];

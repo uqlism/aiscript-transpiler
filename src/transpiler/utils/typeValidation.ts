@@ -8,6 +8,10 @@ export function validateBooleanExpression(
 	expr: ts.Expression,
 	context: TranspilerContext,
 ): void {
+	if (!context.doTypeCheck) {
+		return;
+	}
+
 	if (!isBooleanLike(expr, context.typeChecker)) {
 		const type = context.typeChecker.getTypeAtLocation(expr);
 		const typeString = context.typeChecker.typeToString(type);
@@ -25,6 +29,10 @@ export function validateArrayExpression(
 	expr: ts.Expression,
 	context: TranspilerContext,
 ): void {
+	if (!context.doTypeCheck) {
+		return;
+	}
+
 	const type = context.typeChecker.getTypeAtLocation(expr);
 	const typeString = context.typeChecker.typeToString(type);
 
@@ -39,34 +47,6 @@ export function validateArrayExpression(
 }
 
 /**
- * 複雑な型（Mapped Type、Conditional Type等）かどうかを判定
- */
-function _isComplexType(typeString: string): boolean {
-	// Mapped Type, Conditional Type, Index Access Type等のパターン
-	return /\[.*in.*\]|<.*>.*\?.*:|\[.*keyof.*\]|infer\s+\w+/.test(typeString);
-}
-
-/**
- * Type Guardや制御フロー分析の文脈かどうかを判定
- */
-function _isInControlFlowContext(expr: ts.Expression): boolean {
-	let parent = expr.parent;
-
-	// if文の中にいるかチェック
-	while (parent) {
-		if (ts.isIfStatement(parent)) {
-			return true;
-		}
-		if (ts.isConditionalExpression(parent)) {
-			return true;
-		}
-		parent = parent.parent;
-	}
-
-	return false;
-}
-
-/**
  * 要素アクセス式の型を検証する
  * Array[number] と Object[string] のみ許可
  */
@@ -75,6 +55,10 @@ export function validateElementAccess(
 	indexExpr: ts.Expression,
 	context: TranspilerContext,
 ): void {
+	if (!context.doTypeCheck) {
+		return;
+	}
+
 	const targetType = context.typeChecker.getTypeAtLocation(targetExpr);
 	const indexType = context.typeChecker.getTypeAtLocation(indexExpr);
 	const targetTypeString = context.typeChecker.typeToString(targetType);
@@ -133,6 +117,50 @@ function isNumberLike(
 		typeChecker.getTypeAtLocation(expr),
 		typeChecker.getNumberType(),
 	);
+}
+
+/**
+ * boolean型の式かどうかを検証し、違反時にエラーを投げる
+ */
+export function validateBooleanLike(
+	expr: ts.Expression,
+	context: TranspilerContext,
+	errorMessage?: string,
+): void {
+	if (!context.doTypeCheck) {
+		return;
+	}
+
+	if (!isBooleanLike(expr, context.typeChecker)) {
+		const type = context.typeChecker.getTypeAtLocation(expr);
+		const typeString = context.typeChecker.typeToString(type);
+		context.throwError(
+			errorMessage || `boolean型である必要があります。現在の型: ${typeString}`,
+			expr,
+		);
+	}
+}
+
+/**
+ * number型の式かどうかを検証し、違反時にエラーを投げる
+ */
+export function validateNumberLike(
+	expr: ts.Expression,
+	context: TranspilerContext,
+	errorMessage?: string,
+): void {
+	if (!context.doTypeCheck) {
+		return;
+	}
+
+	if (!isNumberLike(expr, context.typeChecker)) {
+		const type = context.typeChecker.getTypeAtLocation(expr);
+		const typeString = context.typeChecker.typeToString(type);
+		context.throwError(
+			errorMessage || `number型である必要があります。現在の型: ${typeString}`,
+			expr,
+		);
+	}
 }
 
 /**
