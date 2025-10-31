@@ -59,7 +59,7 @@ bun run build
 
 ```
 src/
-├── transpiler/         # トランスパイラエンジン
+├── transpiler/        # トランスパイラエンジン
 │   ├── main.ts        # メインのトランスパイラクラス
 │   ├── base.ts        # ベーストランスパイラとプラグインシステム
 │   ├── plugins/       # 各TypeScript構文のプラグイン
@@ -69,15 +69,15 @@ src/
 │   └── utils/         # ユーティリティ
 ├── bundler.ts         # モジュールバンドラ
 ├── stringifier.ts     # AiScript AST文字列化
-└── index.ts          # メインエントリポイント
+└── index.ts           # メインエントリポイント
 
 bin/
-├── cli.ts            # CLI メインファイル
-└── convert.ts        # 変換ユーティリティ
+├── cli.ts             # CLI メインファイル
+└── convert.ts         # 変換ユーティリティ
 
 types/
-├── aiscript.d.ts     # AiScript型定義
-└── misskey.d.ts      # Misskey型定義
+├── aiscript.d.ts      # AiScript型定義
+└── misskey.d.ts       # Misskey型定義
 ```
 
 ### プラグイン開発
@@ -140,83 +140,14 @@ bun test transpiler.test.ts
 
 ## コーディング規約
 
-### TypeScript
-
-- strict モードを使用
-- 型定義は明示的に記載
-- `any` 型の使用は最小限に
-
-### コミットメッセージ
-
-```
-type: 簡潔な説明
-
-詳細な説明（必要に応じて）
-
-- 変更点1
-- 変更点2
-```
-
-Type例：
-- `feat`: 新機能
-- `fix`: バグ修正
-- `docs`: ドキュメント更新
-- `style`: コードスタイル修正
-- `refactor`: リファクタリング
-- `test`: テスト追加・修正
-
 ### ファイル・フォルダ命名
 
-- ファイル名は kebab-case または camelCase
+- ファイル名は camelCase
 - TypeScript ファイルは `.ts` 拡張子
 - テストファイルは `.test.ts` 拡張子
 
-## テスト指針
-
-### 単体テスト
-
-- 各プラグインの個別テスト
-- エラーハンドリングのテスト
-- エッジケースのテスト
-
-### 統合テスト
-
-- 複数ファイルのバンドルテスト
-- CLI動作テスト
-- 実際のAiScriptコード生成テスト
-
-### テスト作成例
-
-```typescript
-import { expect, test } from "bun:test";
-import { TypeScriptToAiScriptTranspiler } from "../src/transpiler/main";
-
-test("変数宣言のトランスパイル", () => {
-    const transpiler = new TypeScriptToAiScriptTranspiler();
-    const result = transpiler.transpileAndStringify("const x = 10;");
-    expect(result).toBe("let x = 10");
-});
-```
-
-## よくある問題
-
-### TypeScript AST処理
-
-- `ts.isXXX` を使用して node タイプを判定
-- `node.kind` での分岐も活用
-- `typeChecker` を使用した型情報の取得
-
-### AiScript AST生成
-
-- `loc: dummyLoc` を適切に設定
-- AiScript 仕様に合わせた構文生成
-- エラー時は `throwError` を使用
-
-## 質問・サポート
-
-- GitHub Issues で質問可能
-- 実装についての議論は Discussion で
+## バグ報告・改善要望
+- GitHub Issues まで
 
 ## ライセンス
-
 コントリビューションは MIT ライセンスの下で公開されます。
