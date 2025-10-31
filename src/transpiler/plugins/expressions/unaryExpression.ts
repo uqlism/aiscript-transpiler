@@ -15,7 +15,7 @@ export class UnaryExpressionPlugin extends TranspilerPlugin {
 			case ts.isPrefixUnaryExpression(node):
 				return this.convertPrefixUnaryExpressionAsExpression(node);
 			case ts.isPostfixUnaryExpression(node):
-				return this.convertPostfixUnaryExpression(node);
+				return this.convertPostfixUnaryExpressionAsExpression(node)
 		}
 	};
 
@@ -23,10 +23,10 @@ export class UnaryExpressionPlugin extends TranspilerPlugin {
 		node: ts.Expression,
 	): (Ast.Expression | Ast.Statement)[] | undefined => {
 		switch (true) {
+			case ts.isPrefixUnaryExpression(node):
+				return [this.convertPrefixUnaryExpressionAsStatement(node)]
 			case ts.isPostfixUnaryExpression(node):
 				return [this.convertPostfixUnaryExpressionAsStatement(node)];
-			case ts.isPrefixUnaryExpression(node):
-				return [this.convertPrefixUnaryExpressionAsStatement(node)];
 		}
 		return;
 	};
@@ -115,32 +115,75 @@ export class UnaryExpressionPlugin extends TranspilerPlugin {
 					loc: dummyLoc,
 				};
 			default:
+				return this.convertPrefixUnaryExpressionAsExpression(node);
+		}
+	}
+
+	private convertPostfixUnaryExpressionAsExpression(
+		node: ts.PostfixUnaryExpression,
+	): Ast.Expression {
+		const expr = this.converter.convertExpressionAsExpression(node.operand);
+		const temp = this.converter.getUniqueIdentifier();
+		// 型チェック - 後置演算子も数値型をチェック
+		this.validatePostfixUnaryOperationTypes(node);
+		switch (node.operator) {
+			case ts.SyntaxKind.PlusPlusToken:
+				// i++ → i += 1
+				return {
+					type: "block",
+					statements: [
+						{
+							type: "def",
+							dest: temp,
+							expr,
+							mut: false,
+							attr: [],
+							loc: dummyLoc,
+						},
+						{
+							type: "addAssign",
+							dest: expr,
+							expr: { type: "num", value: 1, loc: dummyLoc },
+							loc: dummyLoc,
+						},
+						temp,
+					],
+					loc: dummyLoc,
+				};
+			case ts.SyntaxKind.MinusMinusToken:
+				// i-- → i -= 1
+				return {
+					type: "block",
+					statements: [
+						{
+							type: "def",
+							dest: temp,
+							expr,
+							mut: false,
+							attr: [],
+							loc: dummyLoc,
+						},
+						{
+							type: "subAssign",
+							dest: expr,
+							expr: { type: "num", value: 1, loc: dummyLoc },
+							loc: dummyLoc,
+						},
+						temp,
+					],
+					loc: dummyLoc,
+				};
+			default:
 				this.converter.throwError(
-					`サポートされていない単項演算子です: ${ts.SyntaxKind[node.operator]}`,
+					`サポートされていない後置単項演算子です: ${ts.SyntaxKind[node.operator]}`,
 					node,
 				);
 		}
 	}
 
-	private convertPostfixUnaryExpression(
-		node: ts.PostfixUnaryExpression,
-	): Ast.Expression {
-		const expr = this.converter.convertExpressionAsExpression(node.operand);
-		const temp = this.converter.getUniqueIdentifier();
-		return {
-			type: "block",
-			statements: [
-				{ type: "assign", dest: temp, expr, loc: dummyLoc },
-				this.convertPostfixUnaryExpressionAsStatement(node),
-				temp,
-			],
-			loc: dummyLoc,
-		};
-	}
-
 	private convertPostfixUnaryExpressionAsStatement(
 		node: ts.PostfixUnaryExpression,
-	): Ast.Statement {
+	): Ast.Statement | Ast.Expression {
 		// 型チェック - 後置演算子も数値型をチェック
 		this.validatePostfixUnaryOperationTypes(node);
 
