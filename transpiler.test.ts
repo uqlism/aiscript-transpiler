@@ -20,7 +20,6 @@ const testcases = [
 		title: "イミュータブル（再代入不可）",
 		ts: "const x = 42;",
 		ais: "let x = 42;",
-		only: true,
 	},
 	{
 		title: "ミュータブル（再代入可能）",
@@ -241,9 +240,14 @@ const testcases = [
 		ais: "var x = 1; +x; -x; !x;",
 	},
 	{
-		title: "二項演算",
+		title: "[ERR] 二項演算 - 数値と論理演算子の混在",
 		ts: "7 && 6 === 5 > 4 + 3 * 2 ** -1",
-		ais: "7 && ( 6 == ( 5 > ( 4 + ( 3 * ( 2 ^ (-1))))));",
+		err: "論理演算子 '&&' の左オペランドはBoolean型である必要があります",
+	},
+	{
+		title: "正常な二項演算 - 比較と算術",
+		ts: "6 === 5 && 5 > 4 + 3 * 2 ** 1",
+		ais: "( 6 == 5) && ( 5 > ( 4 + ( 3 * ( 2 ^ 1))))",
 	},
 	{
 		title: "カッコ",
@@ -469,6 +473,71 @@ const testcases = [
 		title: "正常な要素アクセス - オブジェクト[文字列]",
 		ts: `let obj = {x: 1, y: 2}; obj["x"];`,
 		ais: `var obj = {x: 1, y: 2}; obj["x"];`,
+	},
+	{
+		title: "[ERR] 算術演算の左オペランドが文字列",
+		ts: `"hello" + 5`,
+		err: "算術演算子 '+' の左オペランドはNumber型である必要があります",
+	},
+	{
+		title: "[ERR] 算術演算の右オペランドが文字列",
+		ts: `5 + "hello"`,
+		err: "算術演算子 '+' の右オペランドはNumber型である必要があります",
+	},
+	{
+		title: "[ERR] 算術演算の両オペランドが文字列",
+		ts: `"hello" - "world"`,
+		err: "算術演算子 '-' の左オペランドはNumber型である必要があります",
+	},
+	{
+		title: "[ERR] 乗算演算の左オペランドがboolean",
+		ts: `true * 5`,
+		err: "算術演算子 '*' の左オペランドはNumber型である必要があります",
+	},
+	{
+		title: "[ERR] 除算演算の右オペランドがboolean",
+		ts: `10 / false`,
+		err: "算術演算子 '/' の右オペランドはNumber型である必要があります",
+	},
+	{
+		title: "[ERR] 剰余演算の左オペランドが文字列",
+		ts: `"test" % 3`,
+		err: "算術演算子 '%' の左オペランドはNumber型である必要があります",
+	},
+	{
+		title: "[ERR] べき乗演算の右オペランドがboolean",
+		ts: `2 ** true`,
+		err: "算術演算子 '**' の右オペランドはNumber型である必要があります",
+	},
+	{
+		title: "[ERR] 論理演算子ANDの左オペランドが数値",
+		ts: `5 && true`,
+		err: "論理演算子 '&&' の左オペランドはBoolean型である必要があります",
+	},
+	{
+		title: "[ERR] 論理演算子ANDの右オペランドが文字列",
+		ts: `true && "hello"`,
+		err: "論理演算子 '&&' の右オペランドはBoolean型である必要があります",
+	},
+	{
+		title: "[ERR] 論理演算子ORの左オペランドが数値",
+		ts: `10 || false`,
+		err: "論理演算子 '||' の左オペランドはBoolean型である必要があります",
+	},
+	{
+		title: "[ERR] 論理演算子ORの右オペランドが数値",
+		ts: `false || 42`,
+		err: "論理演算子 '||' の右オペランドはBoolean型である必要があります",
+	},
+	{
+		title: "正常な算術演算 - 数値同士",
+		ts: `let result = 10 + 5 * 2`,
+		ais: `var result = 10 + ( 5 * 2)`,
+	},
+	{
+		title: "正常な論理演算 - boolean同士",
+		ts: `let result = true && false || true`,
+		ais: `var result = (true && false) || true`,
 	},
 	{
 		title: "[ERR] 要素アクセス - 配列[文字列]",
