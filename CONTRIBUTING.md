@@ -24,6 +24,14 @@ cd aiscript-transpiler
 bun install
 ```
 
+3. Git hooksのセットアップ
+
+```bash
+bun lefthook install
+```
+
+> **Note**: このプロジェクトではlefthookを使用してコミット時に自動的にリント・フォーマットを実行します。初回のみセットアップが必要です。
+
 ### 開発コマンド
 
 ```bash

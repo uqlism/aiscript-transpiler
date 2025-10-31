@@ -1,0 +1,10 @@
+pre-commit:
+  parallel: true
+  commands:
+    biome-check:
+      glob: "*.{js,ts,json}"
+      run: bun run check:fix {staged_files}
+    git-add:
+      glob: "*.{js,ts,json}"
+      run: git add {staged_files}
+      stage_fixed: true
