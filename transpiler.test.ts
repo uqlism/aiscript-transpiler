@@ -236,8 +236,8 @@ const testcases = [
 	},
 	{
 		title: "単項演算",
-		ts: "let x = 1; +x; -x; !x;",
-		ais: "var x = 1; +x; -x; !x;",
+		ts: "let x = 1; let flag = true; +x; -x; !flag;",
+		ais: "var x = 1; var flag = true; +x; -x; !flag;",
 	},
 	{
 		title: "[ERR] 二項演算 - 数値と論理演算子の混在",
@@ -538,6 +538,51 @@ const testcases = [
 		title: "正常な論理演算 - boolean同士",
 		ts: `let result = true && false || true`,
 		ais: `var result = (true && false) || true`,
+	},
+	{
+		title: "[ERR] 算術代入演算の左オペランドが文字列",
+		ts: `let str: string = "hello"; str += 5`,
+		err: "算術代入演算子 '+=' の左オペランドはNumber型である必要があります",
+	},
+	{
+		title: "[ERR] 算術代入演算の右オペランドが文字列",
+		ts: `let num: number = 10; num -= "world"`,
+		err: "算術代入演算子 '-=' の右オペランドはNumber型である必要があります",
+	},
+	{
+		title: "[ERR] 単項プラス演算子に文字列",
+		ts: `let str: string = "hello"; +str`,
+		err: "単項算術演算子 '+' のオペランドはNumber型である必要があります",
+	},
+	{
+		title: "[ERR] 単項マイナス演算子にboolean",
+		ts: `let flag: boolean = true; -flag`,
+		err: "単項算術演算子 '-' のオペランドはNumber型である必要があります",
+	},
+	{
+		title: "[ERR] 論理否定演算子に数値",
+		ts: `let num: number = 42; !num`,
+		err: "論理否定演算子 '!' のオペランドはBoolean型である必要があります",
+	},
+	{
+		title: "[ERR] 前置インクリメント演算子に文字列",
+		ts: `let str: string = "test"; ++str`,
+		err: "単項増減演算子 '++' のオペランドはNumber型である必要があります",
+	},
+	{
+		title: "[ERR] 後置デクリメント演算子にboolean",
+		ts: `let flag: boolean = false; flag--`,
+		err: "後置増減演算子 '--' のオペランドはNumber型である必要があります",
+	},
+	{
+		title: "正常な代入演算 - 数値同士",
+		ts: `let x: number = 10; x += 5; x -= 2`,
+		ais: `var x = 10; x += 5; x -= 2`,
+	},
+	{
+		title: "正常な単項演算 - 適切な型",
+		ts: `let x: number = 5; let flag: boolean = true; +x; -x; !flag; ++x; x--`,
+		ais: `var x = 5; var flag = true; +x; -x; !flag; x += 1; x -= 1`,
 	},
 	{
 		title: "[ERR] 要素アクセス - 配列[文字列]",
