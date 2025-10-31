@@ -8,5 +8,7 @@ export declare class UnaryExpressionPlugin extends TranspilerPlugin {
     private convertPrefixUnaryExpressionAsStatement;
     private convertPostfixUnaryExpression;
     private convertPostfixUnaryExpressionAsStatement;
+    private validateUnaryOperationTypes;
+    private validatePostfixUnaryOperationTypes;
 }
 //# sourceMappingURL=unaryExpression.d.ts.map

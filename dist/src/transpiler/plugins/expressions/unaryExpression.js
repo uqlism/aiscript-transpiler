@@ -1,6 +1,7 @@
 import ts from "typescript";
 import { TranspilerPlugin } from "../../base.js";
 import { dummyLoc } from "../../consts.js";
+import { validateBooleanLike, validateNumberLike, } from "../../utils/typeValidation.js";
 export class UnaryExpressionPlugin extends TranspilerPlugin {
     tryConvertExpressionAsExpression = (node) => {
         switch (true) {
@@ -20,6 +21,8 @@ export class UnaryExpressionPlugin extends TranspilerPlugin {
         return;
     };
     convertPrefixUnaryExpressionAsExpression(node) {
+        // 型チェック
+        this.validateUnaryOperationTypes(node);
         const expr = this.converter.convertExpressionAsExpression(node.operand);
         switch (node.operator) {
             case ts.SyntaxKind.PlusToken:
@@ -67,6 +70,8 @@ export class UnaryExpressionPlugin extends TranspilerPlugin {
         }
     }
     convertPrefixUnaryExpressionAsStatement(node) {
+        // 型チェック
+        this.validateUnaryOperationTypes(node);
         const expr = this.converter.convertExpressionAsExpression(node.operand);
         switch (node.operator) {
             case ts.SyntaxKind.PlusToken:
@@ -105,6 +110,8 @@ export class UnaryExpressionPlugin extends TranspilerPlugin {
         };
     }
     convertPostfixUnaryExpressionAsStatement(node) {
+        // 型チェック - 後置演算子も数値型をチェック
+        this.validatePostfixUnaryOperationTypes(node);
         const expr = this.converter.convertExpressionAsExpression(node.operand);
         switch (node.operator) {
             case ts.SyntaxKind.PlusPlusToken:
@@ -125,6 +132,33 @@ export class UnaryExpressionPlugin extends TranspilerPlugin {
                 };
             default:
                 this.converter.throwError(`サポートされていない後置単項演算子です: ${ts.SyntaxKind[node.operator]}`, node);
+        }
+    }
+    validateUnaryOperationTypes(node) {
+        switch (node.operator) {
+            case ts.SyntaxKind.PlusToken:
+            case ts.SyntaxKind.MinusToken:
+                // +, - 演算子はNumber型が必要
+                validateNumberLike(node.operand, this.converter, `単項算術演算子 '${ts.tokenToString(node.operator)}' のオペランドはNumber型である必要があります`);
+                break;
+            case ts.SyntaxKind.ExclamationToken:
+                // ! 演算子はBoolean型が必要
+                validateBooleanLike(node.operand, this.converter, `論理否定演算子 '!' のオペランドはBoolean型である必要があります`);
+                break;
+            case ts.SyntaxKind.PlusPlusToken:
+            case ts.SyntaxKind.MinusMinusToken:
+                // ++, -- 演算子はNumber型が必要
+                validateNumberLike(node.operand, this.converter, `単項増減演算子 '${ts.tokenToString(node.operator)}' のオペランドはNumber型である必要があります`);
+                break;
+        }
+    }
+    validatePostfixUnaryOperationTypes(node) {
+        switch (node.operator) {
+            case ts.SyntaxKind.PlusPlusToken:
+            case ts.SyntaxKind.MinusMinusToken:
+                // ++, -- 演算子はNumber型が必要
+                validateNumberLike(node.operand, this.converter, `後置増減演算子 '${ts.tokenToString(node.operator)}' のオペランドはNumber型である必要があります`);
+                break;
         }
     }
 }

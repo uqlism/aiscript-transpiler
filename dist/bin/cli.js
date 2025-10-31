@@ -11,6 +11,7 @@ program
     .showHelpAfterError()
     .argument("<entry-file>")
     .option("-o, --output <file>", "出力ファイルパス (デフォルト: dist/<name>.ais)")
+    .option("--no-type-check", "型チェックをスキップ")
     .action(transpile);
 program
     .command("deploy")
@@ -20,6 +21,7 @@ program
     .argument("<domain>")
     .argument("<play-id>")
     .option("-c, --cred <token>", "APIアクセストークン (要: Playの編集権限) 環境変数 API_TOKEN に設定してもOK")
+    .option("--no-type-check", "型チェックをスキップ")
     .action(deploy);
 function transpile(entryFile, options) {
     const outputFile = options.output;
@@ -44,7 +46,7 @@ function transpile(entryFile, options) {
         console.log(`🔧 Transpiling ${entryFile}...`);
         // Use transpiler directly with file path
         const transpiler = new TypeScriptToAiScriptTranspiler();
-        const result = transpiler.transpileFile(entryPath, process.cwd());
+        const result = transpiler.transpileFile(entryPath, process.cwd(), !options.noTypeCheck);
         const aiScript = AiScriptStringifier.stringify(result);
         // Ensure output directory exists
         const outputDir = path.dirname(finalOutputPath);
@@ -85,7 +87,7 @@ async function deploy(entryFile, domain, playId, options) {
         console.log(`🔧 変換中 ${entryFile}...`);
         // Use transpiler directly with file path
         const transpiler = new TypeScriptToAiScriptTranspiler();
-        const result = transpiler.transpileFile(entryPath, process.cwd());
+        const result = transpiler.transpileFile(entryPath, process.cwd(), !options.noTypeCheck);
         const aiScript = AiScriptStringifier.stringify(result);
         console.log(`🔧 Play更新中 ${entryFile}...`);
         const res = await fetch(`https://${domain}/api/flash/update`, {

@@ -2,6 +2,7 @@ import ts from "typescript";
 import { TranspilerPlugin } from "../../base.js";
 import { dummyLoc } from "../../consts.js";
 import { convertArrayAssignment, convertObjectAssignment, } from "../../utils/destructuring.js";
+import { validateBooleanLike, validateNumberLike, } from "../../utils/typeValidation.js";
 export class BinaryExpressionPlugin extends TranspilerPlugin {
     tryConvertExpressionAsExpression = (node) => {
         if (ts.isBinaryExpression(node)) {
@@ -68,6 +69,8 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
     convertBinaryAssignExpression(node) {
         const left = this.converter.convertExpressionAsExpression(node.left);
         const right = this.converter.convertExpressionAsExpression(node.right);
+        // 代入演算の型チェック
+        this.validateAssignmentOperationTypes(node);
         // 代入演算子
         switch (node.operatorToken.kind) {
             case ts.SyntaxKind.EqualsToken:
@@ -146,6 +149,8 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
     convertBinaryExpression(node) {
         const left = this.converter.convertExpressionAsExpression(node.left);
         const right = this.converter.convertExpressionAsExpression(node.right);
+        // 型チェック
+        this.validateBinaryOperationTypes(node);
         // 二項演算子
         switch (node.operatorToken.kind) {
             case ts.SyntaxKind.PlusToken:
@@ -180,6 +185,58 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
                 return { type: "or", left, right, loc: dummyLoc };
             default:
                 this.converter.throwError(`サポートされていない二項演算子です: ${ts.SyntaxKind[node.operatorToken.kind]}`, node);
+        }
+    }
+    validateBinaryOperationTypes(node) {
+        // 算術演算子（Number型が必要）
+        const arithmeticOperators = [
+            ts.SyntaxKind.PlusToken,
+            ts.SyntaxKind.MinusToken,
+            ts.SyntaxKind.AsteriskToken,
+            ts.SyntaxKind.SlashToken,
+            ts.SyntaxKind.PercentToken,
+            ts.SyntaxKind.AsteriskAsteriskToken,
+        ];
+        // 論理演算子（Boolean型が必要）
+        const logicalOperators = [
+            ts.SyntaxKind.AmpersandAmpersandToken,
+            ts.SyntaxKind.BarBarToken,
+        ];
+        if (arithmeticOperators.includes(node.operatorToken.kind)) {
+            // 算術演算の場合、両オペランドがNumber型である必要がある
+            validateNumberLike(node.left, this.converter, `算術演算子 '${node.operatorToken.getText()}' の左オペランドはNumber型である必要があります`);
+            validateNumberLike(node.right, this.converter, `算術演算子 '${node.operatorToken.getText()}' の右オペランドはNumber型である必要があります`);
+        }
+        else if (logicalOperators.includes(node.operatorToken.kind)) {
+            // 論理演算の場合、両オペランドがBoolean型である必要がある
+            validateBooleanLike(node.left, this.converter, `論理演算子 '${node.operatorToken.getText()}' の左オペランドはBoolean型である必要があります`);
+            validateBooleanLike(node.right, this.converter, `論理演算子 '${node.operatorToken.getText()}' の右オペランドはBoolean型である必要があります`);
+        }
+    }
+    validateAssignmentOperationTypes(node) {
+        // 算術代入演算子（Number型が必要）
+        const arithmeticAssignmentOperators = [
+            ts.SyntaxKind.PlusEqualsToken,
+            ts.SyntaxKind.MinusEqualsToken,
+            ts.SyntaxKind.AsteriskEqualsToken,
+            ts.SyntaxKind.SlashEqualsToken,
+            ts.SyntaxKind.PercentEqualsToken,
+            ts.SyntaxKind.AsteriskAsteriskEqualsToken,
+        ];
+        // 論理代入演算子（Boolean型が必要）
+        const logicalAssignmentOperators = [
+            ts.SyntaxKind.AmpersandAmpersandEqualsToken,
+            ts.SyntaxKind.BarBarEqualsToken,
+        ];
+        if (arithmeticAssignmentOperators.includes(node.operatorToken.kind)) {
+            // 算術代入演算の場合、両オペランドがNumber型である必要がある
+            validateNumberLike(node.left, this.converter, `算術代入演算子 '${node.operatorToken.getText()}' の左オペランドはNumber型である必要があります`);
+            validateNumberLike(node.right, this.converter, `算術代入演算子 '${node.operatorToken.getText()}' の右オペランドはNumber型である必要があります`);
+        }
+        else if (logicalAssignmentOperators.includes(node.operatorToken.kind)) {
+            // 論理代入演算の場合、両オペランドがBoolean型である必要がある
+            validateBooleanLike(node.left, this.converter, `論理代入演算子 '${node.operatorToken.getText()}' の左オペランドはBoolean型である必要があります`);
+            validateBooleanLike(node.right, this.converter, `論理代入演算子 '${node.operatorToken.getText()}' の右オペランドはBoolean型である必要があります`);
         }
     }
 }

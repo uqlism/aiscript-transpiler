@@ -3,6 +3,9 @@ import ts from "typescript";
  * boolean型の式かどうかを検証する
  */
 export function validateBooleanExpression(expr, context) {
+    if (!context.doTypeCheck) {
+        return;
+    }
     if (!isBooleanLike(expr, context.typeChecker)) {
         const type = context.typeChecker.getTypeAtLocation(expr);
         const typeString = context.typeChecker.typeToString(type);
@@ -13,6 +16,9 @@ export function validateBooleanExpression(expr, context) {
  * 配列型の式かどうかを検証する
  */
 export function validateArrayExpression(expr, context) {
+    if (!context.doTypeCheck) {
+        return;
+    }
     const type = context.typeChecker.getTypeAtLocation(expr);
     const typeString = context.typeChecker.typeToString(type);
     // TypeScriptの組み込み配列型チェック
@@ -22,34 +28,13 @@ export function validateArrayExpression(expr, context) {
     }
 }
 /**
- * 複雑な型（Mapped Type、Conditional Type等）かどうかを判定
- */
-function _isComplexType(typeString) {
-    // Mapped Type, Conditional Type, Index Access Type等のパターン
-    return /\[.*in.*\]|<.*>.*\?.*:|\[.*keyof.*\]|infer\s+\w+/.test(typeString);
-}
-/**
- * Type Guardや制御フロー分析の文脈かどうかを判定
- */
-function _isInControlFlowContext(expr) {
-    let parent = expr.parent;
-    // if文の中にいるかチェック
-    while (parent) {
-        if (ts.isIfStatement(parent)) {
-            return true;
-        }
-        if (ts.isConditionalExpression(parent)) {
-            return true;
-        }
-        parent = parent.parent;
-    }
-    return false;
-}
-/**
  * 要素アクセス式の型を検証する
  * Array[number] と Object[string] のみ許可
  */
 export function validateElementAccess(targetExpr, indexExpr, context) {
+    if (!context.doTypeCheck) {
+        return;
+    }
     const targetType = context.typeChecker.getTypeAtLocation(targetExpr);
     const indexType = context.typeChecker.getTypeAtLocation(indexExpr);
     const targetTypeString = context.typeChecker.typeToString(targetType);
@@ -82,6 +67,32 @@ function isBooleanLike(expr, typeChecker) {
  */
 function isNumberLike(expr, typeChecker) {
     return typeChecker.isTypeAssignableTo(typeChecker.getTypeAtLocation(expr), typeChecker.getNumberType());
+}
+/**
+ * boolean型の式かどうかを検証し、違反時にエラーを投げる
+ */
+export function validateBooleanLike(expr, context, errorMessage) {
+    if (!context.doTypeCheck) {
+        return;
+    }
+    if (!isBooleanLike(expr, context.typeChecker)) {
+        const type = context.typeChecker.getTypeAtLocation(expr);
+        const typeString = context.typeChecker.typeToString(type);
+        context.throwError(errorMessage || `boolean型である必要があります。現在の型: ${typeString}`, expr);
+    }
+}
+/**
+ * number型の式かどうかを検証し、違反時にエラーを投げる
+ */
+export function validateNumberLike(expr, context, errorMessage) {
+    if (!context.doTypeCheck) {
+        return;
+    }
+    if (!isNumberLike(expr, context.typeChecker)) {
+        const type = context.typeChecker.getTypeAtLocation(expr);
+        const typeString = context.typeChecker.typeToString(type);
+        context.throwError(errorMessage || `number型である必要があります。現在の型: ${typeString}`, expr);
+    }
 }
 /**
  * string型に代入可能な式かどうかを判定する

@@ -35,7 +35,7 @@ export class Transpiler {
      * TypeScript Programを受け取ってAiScript ASTに変換する
      * 核となる変換処理のみを行う
      */
-    transpileProgram(program, entrySourceFile) {
+    transpileProgram(program, entrySourceFile, doTypeCheck = true) {
         /**
          * グローバルなユニークID生成器
          */
@@ -96,6 +96,7 @@ export class Transpiler {
                 throw new TranspilerError(`Statement not supported ${node.getText()}`, node, entrySourceFile);
             },
             typeChecker: typeChecker,
+            doTypeCheck: doTypeCheck,
             getUniqueIdentifier,
             getModuleRef: (importPath) => {
                 // TypeScriptのコンパイラAPIを使用してモジュール解決

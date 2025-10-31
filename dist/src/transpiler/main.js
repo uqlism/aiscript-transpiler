@@ -89,7 +89,7 @@ export class TypeScriptToAiScriptTranspiler {
         transpiler.addPlugin(TypeNodesPlugin);
         this.#transpiler = transpiler;
     }
-    transpileFile(entryFilePath, userProjectRoot) {
+    transpileFile(entryFilePath, userProjectRoot, doTypeCheck = true) {
         const projectRoot = userProjectRoot || path.dirname(entryFilePath);
         const compilerOptions = loadCompilerOptions(projectRoot);
         const program = ts.createProgram([entryFilePath], compilerOptions);
@@ -97,10 +97,10 @@ export class TypeScriptToAiScriptTranspiler {
         if (!entrySourceFile) {
             throw new Error(`Entry file not found: ${entryFilePath}`);
         }
-        return this.#transpiler.transpileProgram(program, entrySourceFile);
+        return this.#transpiler.transpileProgram(program, entrySourceFile, doTypeCheck);
     }
-    transpileProgram(program, entrySourceFile) {
-        return this.#transpiler.transpileProgram(program, entrySourceFile);
+    transpileProgram(program, entrySourceFile, doTypeCheck = true) {
+        return this.#transpiler.transpileProgram(program, entrySourceFile, doTypeCheck);
     }
 }
 //# sourceMappingURL=main.js.map

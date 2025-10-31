@@ -8,5 +8,7 @@ export declare class BinaryExpressionPlugin extends TranspilerPlugin {
     private convertDestructuringAssignment;
     private convertBinaryAssignExpression;
     private convertBinaryExpression;
+    private validateBinaryOperationTypes;
+    private validateAssignmentOperationTypes;
 }
 //# sourceMappingURL=binaryExpression.d.ts.map
