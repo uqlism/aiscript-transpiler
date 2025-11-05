@@ -3,36 +3,50 @@
 interface Array<T> {
 	[n: number]: T;
 	len: number;
-	at(index: number): T | null;
+	at(index: number): T | undefined;
 	push(item: T): void;
-	pop(): T | null;
+	unshift(item: T): void;
+	pop(): T | undefined;
+	shift(): T | undefined;
 	concat(array: T[]): T[];
+	join(separator?: string): string;
+	slice(begin: number, end: number): T[];
+	incl(item: T): boolean;
 	map<U>(func: (item: T, index: number) => U): U[];
 	filter(func: (item: T, index: number) => boolean): T[];
 	reduce<U>(
 		func: (accumulator: U, current: T, index: number) => U,
 		initial: U,
 	): U;
-	sort(comparator?: (a: T, b: T) => number): T[];
-	reverse(): T[];
-	join(separator?: string): string;
-	find(func: (item: T, index: number) => boolean): T | null;
-	incl(item: T): boolean;
-	slice(begin?: number, end?: number): T[];
+	find(func: (item: T, index: number) => boolean): T | undefined;
+	index_of(val: T, fromIndex?: number): number
+	reverse(): undefined;
 	copy(): T[];
+
+	sort(comp: (a: T, b: T) => number): T[];
+	fill(val?: T, fromIndex?: number, toIndex?: number): T[]
+	fill(): undefined[]
+	repeat(times: number): T[]
+	splice(index: number, remove_count?: number, items?: T[]): T[]
+	flat(depth?: number): any[]
+	flat_map<U>(func: (item: T, index: number) => U[] | U): U[]
+	insert(index: number, item: T): undefined
+	remove(index: number): T | null
+	every(func: (item: T, index: number) => boolean): boolean
+	some(func: (item: T, index: number) => boolean): boolean
 }
 
 // biome-ignore lint/suspicious/noEmptyInterface: Ignore
-interface Boolean {}
+interface Boolean { }
 
 // biome-ignore lint/suspicious/noEmptyInterface: Ignore
-interface Function {}
+interface Function { }
 
 // biome-ignore lint/suspicious/noEmptyInterface: Ignore
-interface RegExp {}
+interface RegExp { }
 
 // biome-ignore lint/suspicious/noEmptyInterface: Ignore
-interface IArguments {}
+interface IArguments { }
 
 interface Number {
 	to_str(): string;
@@ -45,14 +59,14 @@ interface Object {
 
 interface String {
 	len: number;
-	to_num(): number | null;
+	to_num(): number | undefined;
 	to_arr(): string[];
 	to_unicode_arr(): string[];
 	to_unicode_codepoint_arr(): number[];
 	to_char_arr(): string[];
 	to_charcode_arr(): string[];
 	to_utf8_byte_arr(): number[];
-	pick(i: number): string | null;
+	pick(i: number): string | undefined;
 	incl(keyword: string): boolean;
 	starts_with(prefix: string, start_index?: number): boolean;
 	ends_with(suffix: string, end_index?: number): boolean;
@@ -61,6 +75,7 @@ interface String {
 	replace(old: string, _new: string): string;
 	index_of(search: string, fromIndex?: number): number;
 	pad_start(width: number, pad?: string): string;
+	pad_end(width: number, pad?: string): string;
 	trim(): string;
 	upper(): string;
 	lower(): string;
@@ -101,8 +116,11 @@ declare namespace Math {
 	function sqrt(x: number): number;
 	function cbrt(x: number): number;
 	function hypot(x: number, y: number): number;
+
+	// random functions
 	function rnd(): number;
 	function rnd(min: number, max: number): number;
+	function gen_rng(seed: number | string): (min?: number, max?: number) => number
 
 	// Trigonometric functions
 	function sin(x: number): number;
