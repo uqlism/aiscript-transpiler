@@ -55,144 +55,18 @@ export class Transpiler {
 		entrySourceFile: ts.SourceFile,
 		doTypeCheck = true,
 	): Ast.Node[] {
-		/**
-		 * グローバルなユニークID生成器
-		 */
-		let uniqueIdCounter = 0;
-		const getUniqueIdentifier = (): Ast.Identifier => {
-			uniqueIdCounter++;
-			const idStr = uniqueIdCounter.toString(36).padStart(5, "0");
-			const name = `__gen_${idStr}`;
-			return {
-				type: "identifier",
-				name,
-				loc: { start: { column: 0, line: 0 }, end: { column: 0, line: 0 } },
-			};
-		};
-		const typeChecker = program.getTypeChecker();
-		const plugins: TranspilerPlugin[] = [];
 
-		// プログラムからすべてのソースファイルを取得し、エントリファイル以外をモジュールとして扱う
-		const modulePathToId = new Map<string, Ast.Identifier>();
-		const allSourceFiles = program.getSourceFiles();
+		const context = new TranspilerContextImpl(entrySourceFile, doTypeCheck, program)
+		this.#pluiginFactories.forEach(x => { context.addPlugin(x) });
 
-		for (const sourceFile of allSourceFiles) {
-			// TypeScript組み込みライブラリファイルをスキップ
-			if (
-				sourceFile.fileName.includes("node_modules") ||
-				sourceFile.fileName.includes("lib.")
-			) {
-				continue;
-			}
-			// エントリファイル以外をモジュールとして登録
-			if (sourceFile.fileName !== entrySourceFile.fileName) {
-				const moduleId = getUniqueIdentifier();
-				modulePathToId.set(sourceFile.fileName, moduleId);
-			}
-		}
-
-		const context: TranspilerContext = {
-			convertExpressionAsExpression: (node: ts.Expression): Ast.Expression => {
-				for (const plugin of plugins) {
-					const result = plugin.tryConvertExpressionAsExpression?.(node);
-					if (result !== undefined) {
-						return result;
-					}
-				}
-				throw new TranspilerError(
-					"Expression not supported",
-					node,
-					entrySourceFile,
-				);
-			},
-			convertExpressionAsStatements: (
-				node: ts.Expression,
-			): (Ast.Expression | Ast.Statement)[] => {
-				for (const plugin of plugins) {
-					const result = plugin.tryConvertExpressionAsStatements?.(node);
-					if (result !== undefined) {
-						return result;
-					}
-				}
-				return [context.convertExpressionAsExpression(node)];
-			},
-			convertStatementAsStatements: (
-				node: ts.Statement,
-			): (Ast.Expression | Ast.Statement)[] => {
-				for (const plugin of plugins) {
-					const result = plugin.tryConvertStatementAsStatements?.(node);
-					if (result !== undefined) {
-						return result;
-					}
-				}
-				throw new TranspilerError(
-					`Statement not supported ${node.getText()}`,
-					node,
-					entrySourceFile,
-				);
-			},
-			typeChecker: typeChecker,
-			doTypeCheck: doTypeCheck,
-			getUniqueIdentifier,
-			getModuleRef: (importPath: string): Ast.Identifier => {
-				// TypeScriptのコンパイラAPIを使用してモジュール解決
-				const resolution = ts.resolveModuleName(
-					importPath,
-					entrySourceFile.fileName,
-					program.getCompilerOptions(),
-					ts.sys,
-				);
-
-				if (resolution.resolvedModule?.resolvedFileName) {
-					const resolvedPath = resolution.resolvedModule.resolvedFileName;
-					const moduleId = modulePathToId.get(resolvedPath);
-					if (moduleId) return moduleId;
-				}
-
-				if ("failedLookupLocations" in resolution) {
-					for (const i of resolution.failedLookupLocations as string[]) {
-						const moduleId = modulePathToId.get(i);
-						if (moduleId) return moduleId;
-					}
-				}
-
-				throw new Error(`Module not found for import path: ${importPath}`);
-			},
-			addExport: (_name: string): void => {
-				throw new Error("");
-			},
-			throwError: (message: string, node: ts.Node): never => {
-				throw new TranspilerError(message, node, node.getSourceFile());
-			},
-			validateVariableName: (name: string, node: ts.Node): void => {
-				if (reservedWords.includes(name)) {
-					throw new TranspilerError(
-						"予約語を変数名にすることはできません",
-						node,
-						node.getSourceFile(),
-					);
-				}
-			},
-		};
-		plugins.push(...this.#pluiginFactories.map((x) => new x(context)));
 
 		const result: Ast.Node[] = [];
 
 		// Process all imported modules first
-		for (const [modulePath, moduleId] of modulePathToId) {
-			const exportVars = new Set<string>();
-			context.addExport = (name) => {
-				exportVars.add(name);
-			};
-
-			const moduleSourceFile = program.getSourceFile(modulePath);
-			if (!moduleSourceFile) {
-				throw new Error(`Module source file not found: ${modulePath}`);
-			}
-
+		for (const { id, source } of context.getImportedModules()) {
 			// Create eval block for this module
 			const moduleStatements: (Ast.Expression | Ast.Statement)[] = [];
-			ts.forEachChild(moduleSourceFile, (node) => {
+			ts.forEachChild(source, (node) => {
 				switch (true) {
 					case node.kind === ts.SyntaxKind.EndOfFileToken:
 						return;
@@ -205,7 +79,7 @@ export class Transpiler {
 						throw new Error("unknown node");
 				}
 			});
-
+			const exportVars = context.popExports()
 			// If there are exports, add an export object at the end
 			if (exportVars.size > 0) {
 				const exportObj: Ast.Obj = {
@@ -234,7 +108,7 @@ export class Transpiler {
 				// Assign the module result to the module identifier
 				const moduleAssignment: Ast.Definition = {
 					type: "def",
-					dest: moduleId,
+					dest: id,
 					expr: moduleBlock,
 					mut: false,
 					attr: [],
@@ -282,6 +156,132 @@ export type TranspilerContext = {
 	getModuleRef(importPath: string): Ast.Identifier;
 	addExport(name: string): void;
 };
+
+class TranspilerContextImpl implements TranspilerContext {
+	#plugins: TranspilerPlugin[];
+	#entrySourceFile: ts.SourceFile;
+	#uniqueIdCounter = 0;
+	#program: ts.Program;
+	#modulePathToId: Map<string, Ast.Identifier>;
+	#exportVars: Set<string>;
+	constructor(
+		entrySourceFile: ts.SourceFile,
+		doTypeCheck: boolean,
+		program: ts.Program,
+	) {
+		this.#entrySourceFile = entrySourceFile
+		this.#program = program
+		this.#plugins = []
+		this.typeChecker = program.getTypeChecker()
+		this.doTypeCheck = doTypeCheck
+		this.#uniqueIdCounter = 0
+
+		this.#modulePathToId = new Map<string, Ast.Identifier>();
+		this.#exportVars = new Set<string>();
+
+		for (const sourceFile of program.getSourceFiles()) {
+			// TypeScript組み込みライブラリファイルをスキップ
+			if (
+				sourceFile.fileName.includes("node_modules") ||
+				sourceFile.fileName.includes("lib.")
+			) {
+				continue;
+			}
+			// エントリファイル以外をモジュールとして登録
+			if (sourceFile.fileName !== entrySourceFile.fileName) {
+				const moduleId = this.getUniqueIdentifier();
+				this.#modulePathToId.set(sourceFile.fileName, moduleId);
+			}
+		}
+	}
+	addPlugin(pluginFactory: new (converter: TranspilerContext) => TranspilerPlugin) {
+		this.#plugins.push(new pluginFactory(this));
+	}
+	convertExpressionAsExpression(expr: ts.Expression): Ast.Expression {
+		for (const plugin of this.#plugins) {
+			const result = plugin.tryConvertExpressionAsExpression?.(expr);
+			if (result !== undefined) {
+				return result;
+			}
+		}
+		throw new TranspilerError("Expression not supported", expr, this.#entrySourceFile,);
+	}
+	convertExpressionAsStatements(expr: ts.Expression): (Ast.Expression | Ast.Statement)[] {
+		for (const plugin of this.#plugins) {
+			const result = plugin.tryConvertExpressionAsStatements?.(expr);
+			if (result !== undefined) {
+				return result;
+			}
+		}
+		return [this.convertExpressionAsExpression(expr)];
+	}
+	convertStatementAsStatements(node: ts.Statement): (Ast.Expression | Ast.Statement)[] {
+		for (const plugin of this.#plugins) {
+			const result = plugin.tryConvertStatementAsStatements?.(node);
+			if (result !== undefined) {
+				return result;
+			}
+		}
+		throw new TranspilerError(`Statement not supported ${node.getText()}`, node, this.#entrySourceFile,);
+	}
+	getUniqueIdentifier(): Ast.Identifier {
+		this.#uniqueIdCounter++;
+		const idStr = this.#uniqueIdCounter.toString(36).padStart(5, "0");
+		const name = `__gen_${idStr}`;
+		return { type: "identifier", name, loc: { start: { column: 0, line: 0 }, end: { column: 0, line: 0 } }, };
+	}
+	validateVariableName(name: string, node: ts.Node): void {
+		if (reservedWords.includes(name)) {
+			this.throwError("予約語を変数名にすることはできません", node)
+		}
+	}
+	throwError(message: string, node: ts.Node): never {
+		throw new TranspilerError(message, node, node.getSourceFile());
+	}
+	typeChecker: ts.TypeChecker;
+	doTypeCheck: boolean;
+	getModuleRef(importPath: string): Ast.Identifier {
+		// TypeScriptのコンパイラAPIを使用してモジュール解決
+		const resolution = ts.resolveModuleName(
+			importPath,
+			this.#entrySourceFile.fileName,
+			this.#program.getCompilerOptions(),
+			ts.sys,
+		);
+
+		if (resolution.resolvedModule?.resolvedFileName) {
+			const resolvedPath = resolution.resolvedModule.resolvedFileName;
+			const moduleId = this.#modulePathToId.get(resolvedPath);
+			if (moduleId) return moduleId;
+		}
+
+		if ("failedLookupLocations" in resolution) {
+			for (const i of resolution.failedLookupLocations as string[]) {
+				const moduleId = this.#modulePathToId.get(i);
+				if (moduleId) return moduleId;
+			}
+		}
+		throw new Error(`Module not found for import path: ${importPath}`);
+	}
+	addExport(name: string): void {
+		this.#exportVars.add(name);
+	}
+	popExports(): Set<string> {
+		const result = this.#exportVars
+		this.#exportVars = new Set<string>();
+		return result
+	}
+	/** エントリファイル以外のファイルをidとともに返す */
+	* getImportedModules() {
+		for (const [modulePath, moduleId] of this.#modulePathToId) {
+			const moduleSourceFile = this.#program.getSourceFile(modulePath);
+			if (!moduleSourceFile) {
+				throw new Error(`Module source file not found: ${modulePath}`);
+			}
+			yield { source: moduleSourceFile, id: moduleId }
+		}
+	}
+}
 
 export class TranspilerPlugin {
 	protected converter: TranspilerContext;
