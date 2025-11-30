@@ -1,4 +1,4 @@
-import { version } from "./transpiler/consts";
+import { version } from "./transpiler/consts.js";
 /**
  * AiScript ASTをAiScriptコード文字列に変換するクラス
  */
