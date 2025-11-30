@@ -4,7 +4,7 @@
     "": {
       "name": "aiscript-transpiler",
       "dependencies": {
-        "@syuilo/aiscript": "^1.1.2",
+        "@syuilo/aiscript": "1.2.0",
         "commander": "^14.0.2",
       },
       "devDependencies": {
@@ -35,7 +35,7 @@
 
     "@biomejs/cli-win32-x64": ["@biomejs/cli-win32-x64@2.3.2", "", { "os": "win32", "cpu": "x64" }, "sha512-6Ee9P26DTb4D8sN9nXxgbi9Dw5vSOfH98M7UlmkjKB2vtUbrRqCbZiNfryGiwnPIpd6YUoTl7rLVD2/x1CyEHQ=="],
 
-    "@syuilo/aiscript": ["@syuilo/aiscript@1.1.2", "", { "dependencies": { "seedrandom": "3.0.5", "stringz": "2.1.0", "uuid": "11.1.0" } }, "sha512-cijsHTiMjeECocElyjRIcWMPGDhZIX3YfCOyzI6AZM8ajxRQ2hSqJwEh9pDr4mVTml9kLMHWDHmgfHkTHRJ1sg=="],
+    "@syuilo/aiscript": ["@syuilo/aiscript@1.2.0", "", { "dependencies": { "seedrandom": "3.0.5", "stringz": "2.1.0", "uuid": "11.1.0" } }, "sha512-3MkKfqDftqHyouINgHEIHnoTVWEeL0L1o7Y7Y9d8qb5h5vZKphzH/KVG3R2iI6CHtmO1mWHHJx5A499f80H9FA=="],
 
     "@types/bun": ["@types/bun@1.2.23", "", { "dependencies": { "bun-types": "1.2.23" } }, "sha512-le8ueOY5b6VKYf19xT3McVbXqLqmxzPXHsQT/q9JHgikJ2X22wyTW3g3ohz2ZMnp7dod6aduIiq8A14Xyimm0A=="],
 

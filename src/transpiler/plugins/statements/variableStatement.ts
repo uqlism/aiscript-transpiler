@@ -2,7 +2,7 @@ import type { Ast } from "@syuilo/aiscript";
 import ts from "typescript";
 import { TranspilerPlugin } from "../../base.js";
 import { dummyLoc } from "../../consts.js";
-import { convertDestructuringAssignment } from "../../utils/destructuring.js";
+import { convertBindingPattern } from "../../utils/destructuring.js";
 
 export class VariableStatementPlugin extends TranspilerPlugin {
 	override tryConvertStatementAsStatements = (
@@ -55,38 +55,21 @@ export class VariableStatementPlugin extends TranspilerPlugin {
 				});
 			} else {
 				// 分割代入: let [a, b] = array; let {x, y} = object;
-				// 右辺がidentifierでない場合は一時変数に保存
-				let sourceExpr: Ast.Expression;
-				if (expr.type === "identifier") {
-					// 右辺が変数の場合はそのまま使用
-					sourceExpr = expr;
-				} else {
-					// 右辺が関数呼び出しなど複雑な式の場合は一時変数に保存
-					const tempVar = this.converter.getUniqueIdentifier();
-					definitions.push({
-						type: "def",
-						dest: tempVar,
-						expr,
-						mut: false,
-						attr: [],
-						loc: dummyLoc,
-					});
-					sourceExpr = tempVar;
-				}
-
-				// 分割代入の展開
-				const destructuringDefs = convertDestructuringAssignment(
-					nameNode,
-					sourceExpr,
-					isMutable,
-					this.converter,
-				);
-				definitions.push(...destructuringDefs);
+				// AiScriptがネイティブ分割代入をサポートするため、直接def文として出力
+				definitions.push({
+					type: "def",
+					dest: convertBindingPattern(nameNode),
+					expr,
+					mut: isMutable,
+					attr: [],
+					loc: dummyLoc,
+				});
 			}
 		}
 
 		return definitions;
 	}
+
 
 	private hasExportModifier(node: ts.Node): boolean {
 		return (

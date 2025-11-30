@@ -94,53 +94,53 @@ const testcases = [
 	{
 		title: "分割代入-配列",
 		ts: `const [a, b] = [1, 2]`,
-		ais: `let __gen_00002 = [1, 2]; let a = __gen_00002[0]; let b = __gen_00002[1];`,
+		ais: `let [a, b] = [1, 2];`,
 	},
 	{
 		title: "分割代入-オブジェクト",
 		ts: `const { x, y } = { x: 1, y: 2 }`,
-		ais: `let __gen_00002 = {x: 1, y: 2}; let x = __gen_00002.x; let y = __gen_00002.y;`,
+		ais:`let { x: x, y: y } = { x: 1, y: 2 };`,
 	},
 	{
 		title: "分割代入-オブジェクト(名前変更)",
 		ts: `const { x: a, y: b } = { x: 1, y: 2 }`,
-		ais: `let __gen_00002 = {x: 1, y: 2}; let a = __gen_00002.x; let b = __gen_00002.y;`,
+		ais: `let { x: a, y: b } = { x: 1, y: 2 }`,
 	},
 	{
 		title: "分割代入-関数の引数",
 		ts: `function test([a, b] = [0, 0]){ return [a, b] }`,
-		ais: `@test(__gen_00002 = [0, 0]) { let a = __gen_00002[0]; let b = __gen_00002[1]; return [a, b] }`,
+		ais: `@test([a, b] = [0, 0]) { return [a, b] }`,
 	},
 	{
 		title: "分割代入-アロー関数の引数",
 		ts: `([a, b] = [0, 0]) => [a, b]`,
-		ais: `@(__gen_00002 = [0, 0]) { let a = __gen_00002[0]; let b = __gen_00002[1]; return [a, b] }`,
+		ais: `@([a, b] = [0, 0]) { return [a, b] }`,
 	},
 	{
 		title: "分割代入-匿名関数の引数",
 		ts: `const f = function([a, b] = [0, 0]) { return [a, b] }`,
-		ais: `let f = @(__gen_00002 = [0, 0]) { let a = __gen_00002[0]; let b = __gen_00002[1]; return [a, b] }`,
+		ais: `let f = @([a, b] = [0, 0]) { return [a, b] }`,
 	},
 
 	{
 		title: "代入文-配列分割代入",
 		ts: `let a = 0, b = 0; [a, b] = [1, 2]`,
-		ais: `var a = 0; var b = 0; let __gen_00002 = [1, 2]; a = __gen_00002[0]; b = __gen_00002[1];`,
+		ais: `var a = 0; var b = 0; let [a, b] = [1, 2];`,
 	},
 	{
 		title: "代入文-オブジェクト分割代入",
 		ts: `let x = 0, y = 0; ({ x, y } = { x: 1, y: 2 })`,
-		ais: `var x = 0; var y = 0; let __gen_00002 = {x: 1, y: 2}; x = __gen_00002.x; y = __gen_00002.y;`,
+		ais: `var x = 0; var y = 0; let {x: x, y: y} = {x: 1, y: 2};`,
 	},
 	{
 		title: "ネストした分割代入-配列内オブジェクト",
 		ts: `const [a, { x, y }] = [1, { x: 2, y: 3 }]`,
-		ais: `let __gen_00002 = [1, {x: 2, y: 3}]; let a = __gen_00002[0]; let x = __gen_00002[1].x; let y = __gen_00002[1].y;`,
+		ais: `let  [a, { x: x, y: y }] = [1, {x: 2, y: 3}];`,
 	},
 	{
 		title: "ネストした分割代入-オブジェクト内配列",
 		ts: `const { arr: [a, b] } = { arr: [1, 2] }`,
-		ais: `let __gen_00002 = {arr: [1, 2]}; let a = __gen_00002.arr[0]; let b = __gen_00002.arr[1];`,
+		ais: `let { arr: [a, b] } = {arr: [1, 2]};`,
 	},
 
 	{
@@ -169,12 +169,12 @@ const testcases = [
 	{
 		title: "for-of文(配列分割代入)",
 		ts: `for (const [a, b] of items) { a; b; }`,
-		ais: `each let __gen_00002, items { let a = __gen_00002[0]; let b = __gen_00002[1]; a; b }`,
+		ais: `each let [a, b], items { a; b }`,
 	},
 	{
 		title: "for-of文(オブジェクト分割代入)",
 		ts: `for (const {x, y} of items) { x; y; }`,
-		ais: `each let __gen_00002, items { let x = __gen_00002.x; let y = __gen_00002.y; x; y }`,
+		ais: `each let {x: x, y: y}, items { x; y }`,
 	},
 
 	{

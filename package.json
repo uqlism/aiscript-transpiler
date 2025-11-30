@@ -54,7 +54,7 @@
 		"typescript": "^5.9.3"
 	},
 	"dependencies": {
-		"@syuilo/aiscript": "^1.1.2",
+		"@syuilo/aiscript": "1.2.0",
 		"commander": "^14.0.2"
 	}
 }

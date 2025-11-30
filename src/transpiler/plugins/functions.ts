@@ -2,7 +2,7 @@ import type { Ast } from "@syuilo/aiscript";
 import ts from "typescript";
 import { TranspilerPlugin } from "../base.js";
 import { dummyLoc } from "../consts.js";
-import { convertBindingNameArg } from "../utils/destructuring.js";
+import { convertBindingPattern } from "../utils/destructuring.js";
 
 type FnParam = Ast.Fn["params"][number];
 
@@ -118,7 +118,6 @@ export class FunctionsPlugin extends TranspilerPlugin {
 	} {
 		const params: FnParam[] = [];
 		const destructuringStatements: Ast.Statement[] = [];
-		let _paramIndex = 0;
 
 		for (const param of parameters) {
 			const isOptional = !!param.questionToken;
@@ -126,22 +125,17 @@ export class FunctionsPlugin extends TranspilerPlugin {
 				? this.converter.convertExpressionAsExpression(param.initializer)
 				: undefined;
 
-			const [paramIdentifier, paramDestructuring] = convertBindingNameArg(
-				param.name,
-				false,
-				this.converter,
-			);
+			// 分割代入の引数も直接サポート
 			params.push({
-				dest: paramIdentifier,
+				dest: convertBindingPattern(param.name),
 				optional: isOptional,
 				default: defaultValue,
 			});
-			destructuringStatements.push(...paramDestructuring);
-			_paramIndex++;
 		}
 
 		return { params, destructuringStatements };
 	}
+
 
 	private hasExportModifier(node: ts.Node): boolean {
 		return (
