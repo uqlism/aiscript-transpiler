@@ -191,7 +191,7 @@ declare namespace Uri {
 }
 
 declare namespace Obj {
-	function keys<T extends Object>(v: T): keyof T[];
+	function keys<T extends Object>(v: T): (keyof T)[];
 	function vals<T extends Object>(v: T): T[keyof T][];
 	function kvs<T extends Object>(v: T): [string, T[keyof T]][];
 	function get(v: object, key: string): any;
