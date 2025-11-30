@@ -6,7 +6,7 @@ export declare class UnaryExpressionPlugin extends TranspilerPlugin {
     tryConvertExpressionAsStatements: (node: ts.Expression) => (Ast.Expression | Ast.Statement)[] | undefined;
     private convertPrefixUnaryExpressionAsExpression;
     private convertPrefixUnaryExpressionAsStatement;
-    private convertPostfixUnaryExpression;
+    private convertPostfixUnaryExpressionAsExpression;
     private convertPostfixUnaryExpressionAsStatement;
     private validateUnaryOperationTypes;
     private validatePostfixUnaryOperationTypes;

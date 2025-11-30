@@ -1,7 +1,7 @@
 import ts from "typescript";
 import { TranspilerPlugin } from "../base.js";
 import { dummyLoc } from "../consts.js";
-import { convertBindingNameArg } from "../utils/destructuring.js";
+import { convertBindingPattern } from "../utils/destructuring.js";
 export class FunctionsPlugin extends TranspilerPlugin {
     tryConvertStatementAsStatements = (node) => {
         if (ts.isFunctionDeclaration(node)) {
@@ -87,20 +87,17 @@ export class FunctionsPlugin extends TranspilerPlugin {
     processParameters(parameters) {
         const params = [];
         const destructuringStatements = [];
-        let _paramIndex = 0;
         for (const param of parameters) {
             const isOptional = !!param.questionToken;
             const defaultValue = param.initializer
                 ? this.converter.convertExpressionAsExpression(param.initializer)
                 : undefined;
-            const [paramIdentifier, paramDestructuring] = convertBindingNameArg(param.name, false, this.converter);
+            // 分割代入の引数も直接サポート
             params.push({
-                dest: paramIdentifier,
+                dest: convertBindingPattern(param.name),
                 optional: isOptional,
                 default: defaultValue,
             });
-            destructuringStatements.push(...paramDestructuring);
-            _paramIndex++;
         }
         return { params, destructuringStatements };
     }

@@ -1,8 +1,8 @@
 import ts from "typescript";
 import { TranspilerPlugin } from "../../base.js";
 import { dummyLoc } from "../../consts.js";
-import { convertArrayAssignment, convertObjectAssignment, } from "../../utils/destructuring.js";
 import { validateBooleanLike, validateNumberLike, } from "../../utils/typeValidation.js";
+import { convertDestructuringPattern } from "../../utils/destructuring.js";
 export class BinaryExpressionPlugin extends TranspilerPlugin {
     tryConvertExpressionAsExpression = (node) => {
         if (ts.isBinaryExpression(node)) {
@@ -36,35 +36,16 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
     }
     convertDestructuringAssignment(node) {
         const rightExpr = this.converter.convertExpressionAsExpression(node.right);
-        // 右辺が複雑な式の場合は一時変数に保存
-        let sourceExpr;
-        const statements = [];
-        if (rightExpr.type === "identifier") {
-            sourceExpr = rightExpr;
-        }
-        else {
-            const tempVar = this.converter.getUniqueIdentifier();
-            statements.push({
+        const leftPattern = convertDestructuringPattern(node.left);
+        // AiScriptネイティブ分割代入として出力
+        return [{
                 type: "def",
-                dest: tempVar,
+                dest: leftPattern,
                 expr: rightExpr,
                 mut: false,
                 attr: [],
                 loc: dummyLoc,
-            });
-            sourceExpr = tempVar;
-        }
-        // 分割代入を展開（代入文なので assign モードを使用）
-        if (ts.isArrayLiteralExpression(node.left)) {
-            statements.push(...convertArrayAssignment(node.left, sourceExpr, this.converter));
-        }
-        else if (ts.isObjectLiteralExpression(node.left)) {
-            statements.push(...convertObjectAssignment(node.left, sourceExpr, this.converter));
-        }
-        else {
-            this.converter.throwError("Assertion", node);
-        }
-        return statements;
+            }];
     }
     convertBinaryAssignExpression(node) {
         const left = this.converter.convertExpressionAsExpression(node.left);
