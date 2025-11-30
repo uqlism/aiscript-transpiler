@@ -1,4 +1,5 @@
 import type { Ast } from "@syuilo/aiscript";
+import { version } from "./transpiler/consts";
 
 /**
  * AiScript ASTをAiScriptコード文字列に変換するクラス
@@ -11,7 +12,8 @@ export class AiScriptStringifier {
 	 */
 	static stringify(nodes: Ast.Node[]): string {
 		const stringifier = new AiScriptStringifier();
-		return stringifier.stringifyNodes(nodes, 0);
+		const content = stringifier.stringifyNodes(nodes, 0);
+		return `/// @ ${version}\n${content}`;
 	}
 
 	private stringifyNodes(nodes: Ast.Node[], indentLevel: number): string {

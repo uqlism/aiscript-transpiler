@@ -65,3 +65,5 @@ export const dummyLoc = {
 	start: { column: 0, line: 0 },
 	end: { column: 0, line: 0 },
 };
+
+export const version = "1.2.0"

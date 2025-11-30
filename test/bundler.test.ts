@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test";
 import fs from "node:fs";
 import { Parser } from "@syuilo/aiscript";
 import ts from "typescript";
-import { AiScriptStringifier } from "./src/stringifier";
-import { TranspilerError } from "./src/transpiler/base";
-import { TypeScriptToAiScriptTranspiler } from "./src/transpiler/main";
+import { AiScriptStringifier } from "../src/stringifier";
+import { TranspilerError } from "../src/transpiler/base";
+import { TypeScriptToAiScriptTranspiler } from "../src/transpiler/main";
 
 const testCases = [
 	{
@@ -352,7 +352,7 @@ function transpile(modules: { [key: string]: string }) {
 
 	const program = ts.createProgram(Object.keys(files), compilerOptions, {
 		getSourceFile: (fileName) => files[fileName],
-		writeFile: () => {},
+		writeFile: () => { },
 		getCurrentDirectory: () => process.cwd(),
 		getDirectories: () => [],
 		fileExists: (fileName) => fileName in files,

@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import fs from "node:fs";
 import { type Ast, Parser } from "@syuilo/aiscript";
 import ts from "typescript";
-import { TypeScriptToAiScriptTranspiler } from "./src/index.ts";
-import { AiScriptStringifier } from "./src/stringifier.ts";
+import { TypeScriptToAiScriptTranspiler } from "../src/index.ts";
+import { AiScriptStringifier } from "../src/stringifier.ts";
 
 const testcases = [
 	{
@@ -99,7 +99,7 @@ const testcases = [
 	{
 		title: "分割代入-オブジェクト",
 		ts: `const { x, y } = { x: 1, y: 2 }`,
-		ais:`let { x: x, y: y } = { x: 1, y: 2 };`,
+		ais: `let { x: x, y: y } = { x: 1, y: 2 };`,
 	},
 	{
 		title: "分割代入-オブジェクト(名前変更)",
@@ -635,7 +635,7 @@ function transpile(value: string) {
 		compilerOptions,
 		{
 			getSourceFile: (fileName) => (files as any)[fileName],
-			writeFile: () => {},
+			writeFile: () => { },
 			getCurrentDirectory: () => process.cwd(),
 			getDirectories: () => [],
 			fileExists: (fileName) => fileName in files,
@@ -653,7 +653,7 @@ function transpile(value: string) {
 	);
 }
 
-describe.only("TypeScript to AiScript Transpiler", () => {
+describe("TypeScript to AiScript Transpiler", () => {
 	test.each(testcases)("$title", ({ ts, ais, err }) => {
 		if (ais) {
 			expect(AiScriptStringifier.stringify(transpile(ts))).toBe(
