@@ -120,22 +120,31 @@ const testCases = [
 		},
 		expected: `
 let __gen_00001 = eval {
-  let BASE_VALUE = __gen_00002.BASE_VALUE
+  let BASE_VALUE = 10
+  ({BASE_VALUE: BASE_VALUE})
+}
+let __gen_00002 = eval {
+  let BASE_VALUE = __gen_00001.BASE_VALUE
   let MIDDLE_VALUE = (BASE_VALUE * 2)
   @getBase() {
     return BASE_VALUE
   }
   ({MIDDLE_VALUE: MIDDLE_VALUE, getBase: getBase})
 }
-let __gen_00002 = eval {
-  let BASE_VALUE = 10
-  ({BASE_VALUE: BASE_VALUE})
-}
-let MIDDLE_VALUE = __gen_00001.MIDDLE_VALUE
-let getBase = __gen_00001.getBase
+let MIDDLE_VALUE = __gen_00002.MIDDLE_VALUE
+let getBase = __gen_00002.getBase
 let result = (MIDDLE_VALUE + getBase())
 console.log(result)
     `,
+	},
+	{
+		title: "循環参照はエラー",
+		modules: {
+			main: `import { X } from './sub1';`,
+			sub1: `import { Y } from './sub2'; export const X = 100;`,
+			sub2: `import { X } from './sub1'; export const Y = 100;`,
+		},
+		expectedErr: `循環参照が検出されました: sub1.ts -> sub2.ts -> sub1.ts`,
 	},
 	{
 		title: "関数のexportとimport",
@@ -370,14 +379,19 @@ function transpile(modules: { [key: string]: string }) {
 }
 
 describe.only("AiScript Bundler", () => {
-	test.each(testCases)("$title", ({ modules, expected }) => {
-		// ファイルを作成
-		const bundledResult = transpile(modules as any);
+	test.each(testCases)("$title", ({ modules, expected, expectedErr }) => {
+		if (expected) {
+			// ファイルを作成
+			const bundledResult = transpile(modules as any);
+			// For now, just check that the result is a string and contains some expected content
+			expect(AiScriptStringifier.stringify(bundledResult)).toBe(
+				AiScriptStringifier.stringify(Parser.parse(expected)),
+			);
+		}
+		if (expectedErr) {
+			expect(() => transpile(modules as any)).toThrow(expectedErr)
+		}
 
-		// For now, just check that the result is a string and contains some expected content
-		expect(AiScriptStringifier.stringify(bundledResult)).toBe(
-			AiScriptStringifier.stringify(Parser.parse(expected)),
-		);
 	});
 });
 describe("Error position verification", () => {

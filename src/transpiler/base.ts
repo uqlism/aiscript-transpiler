@@ -59,11 +59,16 @@ export class Transpiler {
 		const context = new TranspilerContextImpl(entrySourceFile, doTypeCheck, program)
 		this.#pluiginFactories.forEach(x => { context.addPlugin(x) });
 
+		// Get modules sorted by dependency order (includes circular dependency check)
+		const sortedModules = context.getSortedModules();
 
 		const result: Ast.Node[] = [];
 
-		// Process all imported modules first
-		for (const { id, source } of context.getImportedModules()) {
+		// Process modules in dependency order (dependencies first)
+		for (const { source, id } of sortedModules) {
+			if (source === entrySourceFile || !id) {
+				continue; // Skip entry file and modules without ID
+			}
 			// Create eval block for this module
 			const moduleStatements: (Ast.Expression | Ast.Statement)[] = [];
 			ts.forEachChild(source, (node) => {
@@ -162,8 +167,8 @@ class TranspilerContextImpl implements TranspilerContext {
 	#entrySourceFile: ts.SourceFile;
 	#uniqueIdCounter = 0;
 	#program: ts.Program;
-	#modulePathToId: Map<string, Ast.Identifier>;
 	#exportVars: Set<string>;
+	#sortedModules: { source: ts.SourceFile; fileName: string; id?: Ast.Identifier; }[];
 	constructor(
 		entrySourceFile: ts.SourceFile,
 		doTypeCheck: boolean,
@@ -175,24 +180,10 @@ class TranspilerContextImpl implements TranspilerContext {
 		this.typeChecker = program.getTypeChecker()
 		this.doTypeCheck = doTypeCheck
 		this.#uniqueIdCounter = 0
-
-		this.#modulePathToId = new Map<string, Ast.Identifier>();
 		this.#exportVars = new Set<string>();
 
-		for (const sourceFile of program.getSourceFiles()) {
-			// TypeScript組み込みライブラリファイルをスキップ
-			if (
-				sourceFile.fileName.includes("node_modules") ||
-				sourceFile.fileName.includes("lib.")
-			) {
-				continue;
-			}
-			// エントリファイル以外をモジュールとして登録
-			if (sourceFile.fileName !== entrySourceFile.fileName) {
-				const moduleId = this.getUniqueIdentifier();
-				this.#modulePathToId.set(sourceFile.fileName, moduleId);
-			}
-		}
+		// Build sorted modules with dependency order and circular dependency check
+		this.#sortedModules = this.buildSortedModules()
 	}
 	addPlugin(pluginFactory: new (converter: TranspilerContext) => TranspilerPlugin) {
 		this.#plugins.push(new pluginFactory(this));
@@ -251,14 +242,14 @@ class TranspilerContextImpl implements TranspilerContext {
 
 		if (resolution.resolvedModule?.resolvedFileName) {
 			const resolvedPath = resolution.resolvedModule.resolvedFileName;
-			const moduleId = this.#modulePathToId.get(resolvedPath);
-			if (moduleId) return moduleId;
+			const module = this.#sortedModules.find(m => m.fileName === resolvedPath);
+			if (module?.id) return module.id;
 		}
 
 		if ("failedLookupLocations" in resolution) {
-			for (const i of resolution.failedLookupLocations as string[]) {
-				const moduleId = this.#modulePathToId.get(i);
-				if (moduleId) return moduleId;
+			for (const lookupPath of resolution.failedLookupLocations as string[]) {
+				const module = this.#sortedModules.find(m => m.fileName === lookupPath);
+				if (module?.id) return module.id;
 			}
 		}
 		throw new Error(`Module not found for import path: ${importPath}`);
@@ -273,13 +264,119 @@ class TranspilerContextImpl implements TranspilerContext {
 	}
 	/** エントリファイル以外のファイルをidとともに返す */
 	* getImportedModules() {
-		for (const [modulePath, moduleId] of this.#modulePathToId) {
-			const moduleSourceFile = this.#program.getSourceFile(modulePath);
-			if (!moduleSourceFile) {
-				throw new Error(`Module source file not found: ${modulePath}`);
+		for (const module of this.#sortedModules) {
+			if (module.source !== this.#entrySourceFile && module.id) {
+				yield { source: module.source, id: module.id };
 			}
-			yield { source: moduleSourceFile, id: moduleId }
 		}
+	}
+
+
+	/**
+	 * 依存関係を解析し、循環参照をチェックしつつ、依存関係順にソートされたモジュールリストを構築する
+	 * 子モジュールから親モジュール順 (subSubModule, subModule, entryModule)
+	 */
+	buildSortedModules(): { source: ts.SourceFile, fileName: string, id?: Ast.Identifier }[] {
+		const dependencyGraph = new Map<string, Set<string>>();
+
+		const sourceFiles = this.#program.getSourceFiles().filter(sourceFile => {
+			if (sourceFile.fileName.includes("node_modules") || sourceFile.fileName.includes("lib.")) { return false }
+			return true
+		})
+
+		const allFiles = new Set(sourceFiles.map(x => x.fileName))
+
+		// build dependency graph
+		for (const sourceFile of sourceFiles) {
+			const dependencies = new Set<string>();
+
+			ts.forEachChild(sourceFile, (node) => {
+				if (ts.isImportDeclaration(node) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
+					const importPath = node.moduleSpecifier.text;
+
+					// Resolve the import path
+					const resolution = ts.resolveModuleName(
+						importPath,
+						sourceFile.fileName,
+						this.#program.getCompilerOptions(),
+						ts.sys,
+					);
+
+					if (resolution.resolvedModule?.resolvedFileName) {
+						dependencies.add(resolution.resolvedModule.resolvedFileName);
+					} else if ("failedLookupLocations" in resolution) {
+						// Try failed lookup locations for test environment
+						for (const lookupPath of resolution.failedLookupLocations as string[]) {
+							if (allFiles.has(lookupPath)) {
+								dependencies.add(lookupPath);
+								break;
+							}
+						}
+					} else {
+						throw new Error(`Module not found: ${importPath} from ${sourceFile.fileName}`);
+					}
+				}
+			});
+			dependencyGraph.set(sourceFile.fileName, dependencies);
+		}
+
+		// Topological sort with cycle detection
+		const visited = new Set<string>();
+		const recursionStack = new Set<string>();
+		const sortedFiles: string[] = [];
+
+		const dfs = (fileName: string, path: string[] = []): void => {
+			if (recursionStack.has(fileName)) {
+				// Found circular dependency
+				const cycleStart = path.indexOf(fileName);
+				const cycle = path.slice(cycleStart).concat([fileName]);
+				throw new Error(`循環参照が検出されました: ${cycle.join(' -> ')}`);
+			}
+
+			if (visited.has(fileName)) {
+				return;
+			}
+
+			visited.add(fileName);
+			recursionStack.add(fileName);
+
+			const dependencies = dependencyGraph.get(fileName);
+			if (!dependencies) {
+				throw new Error(`File not found in dependency graph: ${fileName}`);
+			}
+			for (const dependency of dependencies) {
+				dfs(dependency, [...path, fileName]);
+			}
+
+			recursionStack.delete(fileName);
+			sortedFiles.push(fileName);
+		};
+
+		// Sort all files
+		for (const fileName of allFiles) {
+			if (!visited.has(fileName)) {
+				dfs(fileName);
+			}
+		}
+
+		// Convert to result format and generate IDs in sorted order
+		const result: { source: ts.SourceFile, fileName: string, id?: Ast.Identifier }[] = [];
+		for (const fileName of sortedFiles) {
+			const sourceFile = this.#program.getSourceFile(fileName);
+			if (!sourceFile) {
+				throw new Error(`Source file not found: ${fileName}`);
+			}
+
+			// Generate unique ID for non-entry modules in sorted order
+			const moduleId = sourceFile !== this.#entrySourceFile ? this.getUniqueIdentifier() : undefined;
+			result.push({ source: sourceFile, fileName, id: moduleId });
+		}
+
+		return result;
+	}
+
+	getSortedModules(): { source: ts.SourceFile, fileName: string, id?: Ast.Identifier }[] {
+		return this.#sortedModules;
 	}
 }
 
