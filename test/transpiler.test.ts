@@ -604,6 +604,26 @@ const testcases = [
 		ts: `let num = 123; num[0];`,
 		err: "要素アクセスは配列またはオブジェクトに対してのみ使用できます",
 	},
+	{
+		title: "[ERR] thisキーワードは禁止",
+		ts: `console.log(this);`,
+		err: "thisキーワードは使用できません。AiScriptにはthisの概念がありません",
+	},
+	{
+		title: "[ERR] thisキーワードは禁止 - メソッド内",
+		ts: `const obj = { method() { return this.name; } };`,
+		err: "thisキーワードは使用できません。AiScriptにはthisの概念がありません",
+	},
+	{
+		title: "[ERR] thisキーワードは禁止 - プロパティアクセス",
+		ts: `let x = this.property;`,
+		err: "thisキーワードは使用できません。AiScriptにはthisの概念がありません",
+	},
+	{
+		title: "[ERR] thisキーワードは禁止 - 関数呼び出し",
+		ts: `this.method();`,
+		err: "thisキーワードは使用できません。AiScriptにはthisの概念がありません",
+	},
 ];
 
 function transpile(value: string) {

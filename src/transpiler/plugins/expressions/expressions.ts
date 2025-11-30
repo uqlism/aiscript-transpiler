@@ -11,6 +11,12 @@ export class ExpressionsPlugin extends TranspilerPlugin {
 		switch (true) {
 			case ts.isIdentifier(node):
 				return this.convertIdentifier(node);
+			case node.kind === ts.SyntaxKind.ThisKeyword:
+				this.converter.throwError(
+					"thisキーワードは使用できません。AiScriptにはthisの概念がありません",
+					node,
+				);
+				break;
 			case ts.isCallExpression(node):
 				return this.convertCallExpression(node);
 			case ts.isParenthesizedExpression(node):
