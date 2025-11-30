@@ -2,18 +2,6 @@ import type { Ast } from "@syuilo/aiscript";
 import ts from "typescript";
 import type { TranspilerContext } from "../base.js";
 /**
- * 分割代入を展開してAiScript のdef|assign文の配列に変換する
- */
-export declare function convertObjectAssignment(node: ts.ObjectLiteralExpression, sourceExpr: Ast.Expression, helper: TranspilerContext): Ast.Assign[];
-/**
- * 分割代入を展開してAiScript のdef|assign文の配列に変換する
- */
-export declare function convertArrayAssignment(node: ts.ArrayLiteralExpression, sourceExpr: Ast.Expression, helper: TranspilerContext): Ast.Assign[];
-/**
- * 分割代入を展開してAiScript のdef|assign文の配列に変換する
- */
-export declare function convertDestructuringAssignment(nameNode: ts.BindingPattern, sourceExpr: Ast.Expression, isMutable: boolean, helper: TranspilerContext): Ast.Definition[];
-/**
  * BindingPatternをAiScript用の分割代入パターンに変換する
  */
 export declare function convertBindingPattern(bindingName: ts.BindingName): Ast.Expression;

@@ -1,3 +1,4 @@
+import { version } from "./transpiler/consts";
 /**
  * AiScript ASTをAiScriptコード文字列に変換するクラス
  */
@@ -8,7 +9,8 @@ export class AiScriptStringifier {
      */
     static stringify(nodes) {
         const stringifier = new AiScriptStringifier();
-        return stringifier.stringifyNodes(nodes, 0);
+        const content = stringifier.stringifyNodes(nodes, 0);
+        return `/// @ ${version}\n${content}`;
     }
     stringifyNodes(nodes, indentLevel) {
         return nodes

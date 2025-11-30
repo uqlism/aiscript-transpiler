@@ -9,4 +9,5 @@ export declare const dummyLoc: {
         line: number;
     };
 };
+export declare const version = "1.2.0";
 //# sourceMappingURL=consts.d.ts.map
