@@ -19,84 +19,53 @@ export class SwitchStatementPlugin extends TranspilerPlugin {
 			node.expression,
 		);
 
-		// switch式の値を一時変数に保存（複数回参照されるため）
-		const tempVar = this.converter.getUniqueIdentifier();
-		const tempVarDef: Ast.Definition = {
-			type: "def",
-			dest: tempVar,
-			expr: switchExpr,
-			mut: false,
-			attr: [],
-			loc: dummyLoc,
-		};
-
-		// if-elif文チェーンを構築
-		let ifStatement: Ast.If | undefined;
-		let defaultBody: (Ast.Statement | Ast.Expression)[] = [];
+		// match文のケースと default を構築
+		const cases: Array<{ cond: Ast.Expression; body: Ast.Block }> = [];
+		let defaultBody: Ast.Block | undefined;
 
 		for (const clause of node.caseBlock.clauses) {
 			if (ts.isCaseClause(clause)) {
 				const caseValue = this.converter.convertExpressionAsExpression(
 					clause.expression,
 				);
-				const caseBody = this.convertSwitchCaseBodyToStatements(
+				const caseStatements = this.convertSwitchCaseBodyToStatements(
 					clause.statements,
 				);
 
-				// tempVar === caseValue の条件
-				const condition: Ast.Eq = {
-					type: "eq",
-					left: tempVar,
-					right: caseValue,
-					loc: dummyLoc,
-				};
-
-				const thenBlock: Ast.Block = {
+				// ケースボディを常にブロックにする
+				const caseBody: Ast.Block = {
 					type: "block",
-					statements: caseBody,
+					statements: caseStatements,
 					loc: dummyLoc,
 				};
 
-				if (!ifStatement) {
-					// 最初のif文
-					ifStatement = {
-						type: "if",
-						cond: condition,
-						// biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
-						then: thenBlock,
-						elseif: [],
-						else: undefined,
-						loc: dummyLoc,
-					};
-				} else {
-					// elif文として追加
-					ifStatement.elseif.push({
-						cond: condition,
-						// biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
-						then: thenBlock,
-					});
-				}
+				cases.push({
+					cond: caseValue,
+					body: caseBody,
+				});
 			} else if (ts.isDefaultClause(clause)) {
-				defaultBody = this.convertSwitchCaseBodyToStatements(clause.statements);
+				const defaultStatements = this.convertSwitchCaseBodyToStatements(clause.statements);
+				defaultBody = {
+					type: "block",
+					statements: defaultStatements,
+					loc: dummyLoc,
+				};
 			}
 		}
 
-		// default句がある場合はelse文として追加
-		if (defaultBody.length > 0 && ifStatement) {
-			ifStatement.else = {
-				type: "block",
-				statements: defaultBody,
-				loc: dummyLoc,
-			};
-		}
+		// AiScript match文として生成
+		const matchStatement: Ast.Match = {
+			type: "match",
+			about: switchExpr,
+			qs: cases.map(caseItem => ({
+				q: caseItem.cond,
+				a: caseItem.body,
+			})),
+			default: defaultBody,
+			loc: dummyLoc,
+		};
 
-		// 一時変数定義とif文を配列で返す
-		if (ifStatement) {
-			return [tempVarDef, ifStatement];
-		} else {
-			// case文がない場合（空のswitch）
-			return [tempVarDef];
-		}
+		return [matchStatement];
 	}
 
 	private createNull(): Ast.Null {

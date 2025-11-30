@@ -292,7 +292,7 @@ const testcases = [
 	{
 		title: "Switch文(break/return必須)",
 		ts: "() => switch (x) { case 1: 100; break; case 2: break; case 3: return undefined; default: return 3; }",
-		ais: "@(){ let __gen_00002 = x; if __gen_00002 == 1 { 100 } elif __gen_00002 == 2 { } elif __gen_00002 == 3 { return null } else { return 3 }}",
+		ais: "@() { match x { case 1 => { 100 }, case 2 => { }, case 3 => { return null }, default => { return 3 }}}",
 	},
 	{
 		title: "Switch文(break/returnない場合エラー)",
