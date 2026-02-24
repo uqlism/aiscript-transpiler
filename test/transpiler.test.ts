@@ -624,6 +624,21 @@ const testcases = [
 		ts: `this.method();`,
 		err: "thisキーワードは使用できません。AiScriptにはthisの概念がありません",
 	},
+	{
+		title: "[ERR] __から始まる変数名は禁止",
+		ts: `let __foo = 1;`,
+		err: "__から始まる変数名は使用できません",
+	},
+	{
+		title: "[ERR] __から始まる変数名は禁止 - 関数名",
+		ts: `function __bar() {}`,
+		err: "__から始まる変数名は使用できません",
+	},
+	{
+		title: "[ERR] __から始まる変数名は禁止 - const",
+		ts: `const __baz = "test";`,
+		err: "__から始まる変数名は使用できません",
+	},
 ];
 
 function transpile(value: string) {

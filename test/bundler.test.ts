@@ -40,15 +40,15 @@ const testCases = [
       `,
 		},
 		expected: `
-    let __gen_00001 = eval {
+    let __00001 = eval {
         let PI = 3.14159
         @multiply(a, b) {
           return (a * b)
         }
 		({PI: PI, multiply: multiply})
     }
-    let PI = __gen_00001.PI
-    let multiply = __gen_00001.multiply
+    let PI = __00001.PI
+    let multiply = __00001.multiply
     let radius = 5
     let area = multiply(PI, (radius * radius))
     print(area)
@@ -77,24 +77,24 @@ const testCases = [
         }
       `,
 		},
-		expected: `let __gen_00001 = eval {
+		expected: `let __00001 = eval {
       let count = 1
       @increment() {
         return (count + 1)
       }
       ({count: count, increment: increment})
     }
-    let __gen_00002 = eval {
+    let __00002 = eval {
       let count = 100
       @decrement() {
         return (count - 1)
       }
       ({count: count, decrement: decrement})
     }
-    let countA = __gen_00001.count
-    let increment = __gen_00001.increment
-    let countB = __gen_00002.count
-    let decrement = __gen_00002.decrement
+    let countA = __00001.count
+    let increment = __00001.increment
+    let countB = __00002.count
+    let decrement = __00002.decrement
     let result = (increment() + decrement())
     print(countA, countB, result)`,
 	},
@@ -119,20 +119,20 @@ const testCases = [
       `,
 		},
 		expected: `
-let __gen_00001 = eval {
+let __00001 = eval {
   let BASE_VALUE = 10
   ({BASE_VALUE: BASE_VALUE})
 }
-let __gen_00002 = eval {
-  let BASE_VALUE = __gen_00001.BASE_VALUE
+let __00002 = eval {
+  let BASE_VALUE = __00001.BASE_VALUE
   let MIDDLE_VALUE = (BASE_VALUE * 2)
   @getBase() {
     return BASE_VALUE
   }
   ({MIDDLE_VALUE: MIDDLE_VALUE, getBase: getBase})
 }
-let MIDDLE_VALUE = __gen_00002.MIDDLE_VALUE
-let getBase = __gen_00002.getBase
+let MIDDLE_VALUE = __00002.MIDDLE_VALUE
+let getBase = __00002.getBase
 let result = (MIDDLE_VALUE + getBase())
 console.log(result)
     `,
@@ -170,7 +170,7 @@ console.log(result)
       `,
 		},
 		expected: `
-let __gen_00001 = eval {
+let __00001 = eval {
   @add(a, b) {
     return (a + b)
   }
@@ -179,8 +179,8 @@ let __gen_00001 = eval {
   }
   ({add: add, subtract: subtract})
 }
-let add = __gen_00001.add
-let subtract = __gen_00001.subtract
+let add = __00001.add
+let subtract = __00001.subtract
 let x = 10
 let y = 5
 let sum = add(x, y)
