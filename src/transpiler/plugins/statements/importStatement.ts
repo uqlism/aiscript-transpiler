@@ -15,7 +15,6 @@ export class ImportStatementPlugin extends TranspilerPlugin {
 	private convertImportDeclaration(
 		node: ts.ImportDeclaration,
 	): (Ast.Expression | Ast.Statement)[] {
-		// import�K�importPath�֗
 		if (!ts.isStringLiteral(node.moduleSpecifier)) {
 			this.converter.throwError(
 				"Import specifier must be a string literal",
@@ -27,8 +26,6 @@ export class ImportStatementPlugin extends TranspilerPlugin {
 		const moduleRef = this.converter.getModuleRef(importPath);
 
 		if (!node.importClause) {
-			// import "./module" n�Fjo\(nnimport
-			// U�WjD
 			return [];
 		}
 

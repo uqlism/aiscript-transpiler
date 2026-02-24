@@ -325,6 +325,81 @@ const testcases = [
 		ais: `let obj = {hello: "world"}; obj["hello"];`,
 	},
 	{
+		title: "クラス定義",
+		ts: `class MyClass {
+			field: number
+			constructor(number:number) {
+				this.field = number
+			}
+			static staticMethod() {
+				return new MyClass(42)
+			}
+			method() {
+				return this.field
+			}
+		}`,
+		ais: `let MyClass = {
+			__new: @(number) {
+				let __this = {};
+				__this.field = number;
+				__this.method = @() {
+					return __this.field;
+				};
+				return __this;
+			},
+			staticMethod: @() {
+				return MyClass.__new(42);
+			}
+		 }`,
+	},
+	{
+		title: "クラス継承",
+		ts: `class Base {
+			x: number
+			constructor(number:number) {
+				this.x = number
+			}
+			baseMethod() {
+				return this.x
+			}
+		}
+
+		class Derived extends Base {
+			y: number
+			constructor(number:number, derivedNumber:number) {
+                const x = 100
+				super(x)
+				this.y = derivedNumber
+			}
+			derivedMethod() {
+				return this.x + this.y
+			}
+		}
+		`,
+		ais: `let Base = {
+			__new: @(number) {
+				let __this = {};
+				__this.x = number;
+				__this.baseMethod = @() {
+					return __this.x;
+				};
+				return __this;
+			}
+		 }
+
+		 let Derived = {
+			__new: @(number, derivedNumber) {
+                let x = 100
+				let __this = Base.__new(x);
+				__this.y = derivedNumber;
+				__this.derivedMethod = @() {
+					return __this.x + __this.y;
+				};
+				return __this;
+			}
+		}`,
+	},
+	{
 		title: "Core:v",
 		ts: `Core.v;`,
 		ais: `Core:v;`,
@@ -638,6 +713,16 @@ const testcases = [
 		title: "[ERR] __から始まる変数名は禁止 - const",
 		ts: `const __baz = "test";`,
 		err: "__から始まる変数名は使用できません",
+	},
+	{
+		title: "[ERR] クラスのgetterはサポートされていない",
+		ts: `class MyClass { get value() { return 1; } }`,
+		err: "getterはサポートされていません",
+	},
+	{
+		title: "[ERR] クラスのsetterはサポートされていない",
+		ts: `class MyClass { set value(v: number) { } }`,
+		err: "setterはサポートされていません",
 	},
 ];
 

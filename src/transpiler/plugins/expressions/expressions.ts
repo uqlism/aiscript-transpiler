@@ -12,11 +12,7 @@ export class ExpressionsPlugin extends TranspilerPlugin {
 			case ts.isIdentifier(node):
 				return this.convertIdentifier(node);
 			case node.kind === ts.SyntaxKind.ThisKeyword:
-				this.converter.throwError(
-					"thisキーワードは使用できません。AiScriptにはthisの概念がありません",
-					node,
-				);
-				break;
+				return this.convertThisKeyword(node);
 			case ts.isCallExpression(node):
 				return this.convertCallExpression(node);
 			case ts.isParenthesizedExpression(node):
@@ -29,6 +25,34 @@ export class ExpressionsPlugin extends TranspilerPlugin {
 	private convertIdentifier(node: ts.Identifier): Ast.Identifier | Ast.Null {
 		if (node.text === "undefined") return { type: "null", loc: dummyLoc };
 		return { type: "identifier", name: node.text, loc: dummyLoc };
+	}
+
+	private convertThisKeyword(node: ts.Node): Ast.Identifier {
+		// クラス内かどうかをチェック
+		if (!this.isInsideClass(node)) {
+			this.converter.throwError(
+				"thisキーワードは使用できません。AiScriptにはthisの概念がありません",
+				node,
+			);
+		}
+		// クラス内の this は __this に変換
+		return { type: "identifier", name: "__this", loc: dummyLoc };
+	}
+
+	private isInsideClass(node: ts.Node): boolean {
+		let current: ts.Node | undefined = node.parent;
+		while (current) {
+			// クラス宣言またはクラス式の中にいる場合は許可
+			if (ts.isClassDeclaration(current) || ts.isClassExpression(current)) {
+				return true;
+			}
+			// オブジェクトリテラルに到達した場合は禁止
+			if (ts.isObjectLiteralExpression(current)) {
+				return false;
+			}
+			current = current.parent;
+		}
+		return false;
 	}
 
 	private convertCallExpression(node: ts.CallExpression): Ast.Call {

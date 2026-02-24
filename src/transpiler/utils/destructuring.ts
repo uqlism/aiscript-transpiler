@@ -283,3 +283,27 @@ export function convertBindingNameArg(
 		return [id, definitions];
 	}
 }
+
+type FnParam = Ast.Fn["params"][number];
+
+/**
+ * 関数/メソッド/コンストラクタのパラメータをAiScript用に変換する
+ */
+export function processParameters(
+	parameters: readonly ts.ParameterDeclaration[],
+	context: TranspilerContext,
+): FnParam[] {
+	const params: FnParam[] = [];
+
+	for (const param of parameters) {
+		params.push({
+			dest: convertBindingPattern(param.name),
+			optional: !!param.questionToken,
+			default: param.initializer
+				? context.convertExpressionAsExpression(param.initializer)
+				: undefined,
+		});
+	}
+
+	return params;
+}
