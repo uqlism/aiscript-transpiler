@@ -164,12 +164,15 @@ class TranspilerContextImpl {
     getUniqueIdentifier() {
         this.#uniqueIdCounter++;
         const idStr = this.#uniqueIdCounter.toString(36).padStart(5, "0");
-        const name = `__gen_${idStr}`;
+        const name = `__${idStr}`;
         return { type: "identifier", name, loc: { start: { column: 0, line: 0 }, end: { column: 0, line: 0 } }, };
     }
     validateVariableName(name, node) {
         if (reservedWords.includes(name)) {
             this.throwError("予約語を変数名にすることはできません", node);
+        }
+        if (name.startsWith("__")) {
+            this.throwError("__から始まる変数名は使用できません", node);
         }
     }
     throwError(message, node) {

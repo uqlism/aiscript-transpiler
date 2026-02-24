@@ -8,15 +8,12 @@ export class ImportStatementPlugin extends TranspilerPlugin {
         }
     };
     convertImportDeclaration(node) {
-        // import�K�importPath�֗
         if (!ts.isStringLiteral(node.moduleSpecifier)) {
             this.converter.throwError("Import specifier must be a string literal", node.moduleSpecifier);
         }
         const importPath = node.moduleSpecifier.text;
         const moduleRef = this.converter.getModuleRef(importPath);
         if (!node.importClause) {
-            // import "./module" n�Fjo\(nnimport
-            // U�WjD
             return [];
         }
         const statements = [];

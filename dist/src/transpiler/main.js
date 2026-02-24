@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as ts from "typescript";
 import { Transpiler as BaseTranspiler } from "./base.js";
+import { ClassDeclarationPlugin } from "./plugins/classDeclaration.js";
 import { ConditionPlugin } from "./plugins/condition.js";
 import { BinaryExpressionPlugin } from "./plugins/expressions/binaryExpression.js";
 import { ExpressionsPlugin } from "./plugins/expressions/expressions.js";
@@ -81,6 +82,7 @@ export class TypeScriptToAiScriptTranspiler {
         transpiler.addPlugin(VariableStatementPlugin);
         transpiler.addPlugin(StatementsPlugin);
         transpiler.addPlugin(FunctionsPlugin);
+        transpiler.addPlugin(ClassDeclarationPlugin);
         transpiler.addPlugin(LoopStatementsPlugin);
         transpiler.addPlugin(ConditionPlugin);
         transpiler.addPlugin(SwitchStatementPlugin);

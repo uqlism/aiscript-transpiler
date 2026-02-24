@@ -1,7 +1,7 @@
 import ts from "typescript";
 import { TranspilerPlugin } from "../base.js";
 import { dummyLoc } from "../consts.js";
-import { convertBindingPattern } from "../utils/destructuring.js";
+import { processParameters } from "../utils/destructuring.js";
 export class FunctionsPlugin extends TranspilerPlugin {
     tryConvertStatementAsStatements = (node) => {
         if (ts.isFunctionDeclaration(node)) {
@@ -28,13 +28,11 @@ export class FunctionsPlugin extends TranspilerPlugin {
         if (this.hasExportModifier(node)) {
             this.converter.addExport(name);
         }
-        const { params, destructuringStatements } = this.processParameters(node.parameters);
+        const params = processParameters(node.parameters, this.converter);
         const body = [];
         for (const statement of node.body?.statements ?? []) {
             body.push(...this.converter.convertStatementAsStatements(statement));
         }
-        // 分割代入の展開文を関数の最初に追加
-        const finalBody = [...destructuringStatements, ...body];
         // AiScript形式の関数定義: @name(params) { ... }
         return [
             {
@@ -43,8 +41,8 @@ export class FunctionsPlugin extends TranspilerPlugin {
                 expr: {
                     type: "fn",
                     typeParams: [],
-                    params: params,
-                    children: finalBody,
+                    params,
+                    children: body,
                     loc: dummyLoc,
                 },
                 mut: false,
@@ -54,7 +52,7 @@ export class FunctionsPlugin extends TranspilerPlugin {
         ];
     }
     convertInlineFunction(node) {
-        const { params, destructuringStatements } = this.processParameters(node.parameters);
+        const params = processParameters(node.parameters, this.converter);
         let children;
         if (ts.isBlock(node.body)) {
             // { return x + y } 形式
@@ -74,32 +72,13 @@ export class FunctionsPlugin extends TranspilerPlugin {
                 },
             ];
         }
-        // 分割代入の展開文を関数の最初に追加
-        const finalChildren = [...destructuringStatements, ...children];
         return {
             type: "fn",
             typeParams: [],
-            params: params,
-            children: finalChildren,
+            params,
+            children,
             loc: dummyLoc,
         };
-    }
-    processParameters(parameters) {
-        const params = [];
-        const destructuringStatements = [];
-        for (const param of parameters) {
-            const isOptional = !!param.questionToken;
-            const defaultValue = param.initializer
-                ? this.converter.convertExpressionAsExpression(param.initializer)
-                : undefined;
-            // 分割代入の引数も直接サポート
-            params.push({
-                dest: convertBindingPattern(param.name),
-                optional: isOptional,
-                default: defaultValue,
-            });
-        }
-        return { params, destructuringStatements };
     }
     hasExportModifier(node) {
         return (ts.canHaveModifiers(node) &&

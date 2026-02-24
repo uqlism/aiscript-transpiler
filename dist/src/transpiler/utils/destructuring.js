@@ -244,4 +244,20 @@ export function convertBindingNameArg(bindingName, isMutable, context) {
         return [id, definitions];
     }
 }
+/**
+ * 関数/メソッド/コンストラクタのパラメータをAiScript用に変換する
+ */
+export function processParameters(parameters, context) {
+    const params = [];
+    for (const param of parameters) {
+        params.push({
+            dest: convertBindingPattern(param.name),
+            optional: !!param.questionToken,
+            default: param.initializer
+                ? context.convertExpressionAsExpression(param.initializer)
+                : undefined,
+        });
+    }
+    return params;
+}
 //# sourceMappingURL=destructuring.js.map

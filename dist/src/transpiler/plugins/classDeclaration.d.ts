@@ -1,12 +1,14 @@
 import type { Ast } from "@syuilo/aiscript";
 import ts from "typescript";
 import { TranspilerPlugin } from "../base.js";
-export declare class FunctionsPlugin extends TranspilerPlugin {
+export declare class ClassDeclarationPlugin extends TranspilerPlugin {
     tryConvertStatementAsStatements: (node: ts.Statement) => (Ast.Expression | Ast.Statement)[] | undefined;
     tryConvertExpressionAsExpression: (node: ts.Expression) => Ast.Expression | undefined;
-    private convertFunctionDeclaration;
-    private convertInlineFunction;
-    private hasExportModifier;
-    private hasDeclareModifier;
+    private convertClassDeclaration;
+    private getBaseClassName;
+    private createNewMethod;
+    private getSuperCallArgs;
+    private convertMethodToFunction;
+    private convertNewExpression;
 }
-//# sourceMappingURL=functions.d.ts.map
+//# sourceMappingURL=classDeclaration.d.ts.map
