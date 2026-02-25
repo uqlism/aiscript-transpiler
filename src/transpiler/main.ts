@@ -3,6 +3,7 @@ import * as path from "node:path";
 import type { Ast } from "@syuilo/aiscript";
 import * as ts from "typescript";
 import { Transpiler as BaseTranspiler } from "./base.js";
+import { defaultNamespaces } from "./consts.js";
 import { ClassDeclarationPlugin } from "./plugins/classDeclaration.js";
 import { ConditionPlugin } from "./plugins/condition.js";
 import { BinaryExpressionPlugin } from "./plugins/expressions/binaryExpression.js";
@@ -85,8 +86,12 @@ function loadCompilerOptions(userProjectRoot: string): ts.CompilerOptions {
 
 export class TypeScriptToAiScriptTranspiler {
 	#transpiler: BaseTranspiler;
-	constructor() {
-		const transpiler = new BaseTranspiler();
+	constructor(options?: { additionalNamespaces?: string[] }) {
+		const namespaces = [
+			...defaultNamespaces,
+			...(options?.additionalNamespaces ?? []),
+		];
+		const transpiler = new BaseTranspiler(namespaces);
 		// Import/Export plugins must come first to handle import/export modifiers
 		transpiler.addPlugin(ImportStatementPlugin);
 		transpiler.addPlugin(ExportStatementPlugin);

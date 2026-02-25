@@ -25,30 +25,15 @@ export class PropertyAccessPlugin extends TranspilerPlugin {
 		const propertyName = node.name.text;
 
 		// AiScriptの名前空間アクセス（Core.v → Core:v）の特別処理
-		if (target.type === "identifier") {
-			const namespaces = [
-				"Core",
-				"Math",
-				"Util",
-				"Json",
-				"Date",
-				"Uri",
-				"Str",
-				"Num",
-				"Arr",
-				"Obj",
-				"Async",
-				"Mk",
-				"Ui",
-				"Ui:C",
-			];
-			if (namespaces.includes(target.name)) {
-				return {
-					type: "identifier",
-					name: `${target.name}:${propertyName}`,
-					loc: dummyLoc,
-				};
-			}
+		if (
+			target.type === "identifier" &&
+			this.converter.getNamespaces().includes(target.name)
+		) {
+			return {
+				type: "identifier",
+				name: `${target.name}:${propertyName}`,
+				loc: dummyLoc,
+			};
 		}
 		// 通常のプロパティアクセス
 		return {

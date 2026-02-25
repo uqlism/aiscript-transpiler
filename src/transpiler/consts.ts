@@ -66,4 +66,21 @@ export const dummyLoc = {
 	end: { column: 0, line: 0 },
 };
 
-export const version = "1.2.0"
+export const version = "1.2.0";
+
+export const defaultNamespaces = [
+	"Core",
+	"Math",
+	"Util",
+	"Json",
+	"Date",
+	"Uri",
+	"Str",
+	"Num",
+	"Arr",
+	"Obj",
+	"Async",
+	"Mk",
+	"Ui",
+	"Ui:C",
+];

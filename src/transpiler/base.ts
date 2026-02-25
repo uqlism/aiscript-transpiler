@@ -35,9 +35,11 @@ export class Transpiler {
 	#pluiginFactories: (new (
 		converter: TranspilerContext,
 	) => TranspilerPlugin)[];
+	#namespaces: string[];
 
-	constructor() {
+	constructor(namespaces: string[] = []) {
 		this.#pluiginFactories = [];
+		this.#namespaces = namespaces;
 	}
 
 	addPlugin(
@@ -56,7 +58,7 @@ export class Transpiler {
 		doTypeCheck = true,
 	): Ast.Node[] {
 
-		const context = new TranspilerContextImpl(entrySourceFile, doTypeCheck, program)
+		const context = new TranspilerContextImpl(entrySourceFile, doTypeCheck, program, this.#namespaces)
 		this.#pluiginFactories.forEach(x => { context.addPlugin(x) });
 
 		// Get modules sorted by dependency order (includes circular dependency check)
@@ -157,6 +159,8 @@ export type TranspilerContext = {
 	typeChecker: ts.TypeChecker;
 	doTypeCheck: boolean;
 
+	getNamespaces(): string[];
+
 	// モジュール関連
 	getModuleRef(importPath: string): Ast.Identifier;
 	addExport(name: string): void;
@@ -169,10 +173,12 @@ class TranspilerContextImpl implements TranspilerContext {
 	#program: ts.Program;
 	#exportVars: Set<string>;
 	#sortedModules: { source: ts.SourceFile; fileName: string; id?: Ast.Identifier; }[];
+	#namespaces: string[];
 	constructor(
 		entrySourceFile: ts.SourceFile,
 		doTypeCheck: boolean,
 		program: ts.Program,
+		namespaces: string[],
 	) {
 		this.#entrySourceFile = entrySourceFile
 		this.#program = program
@@ -181,6 +187,7 @@ class TranspilerContextImpl implements TranspilerContext {
 		this.doTypeCheck = doTypeCheck
 		this.#uniqueIdCounter = 0
 		this.#exportVars = new Set<string>();
+		this.#namespaces = namespaces;
 
 		// Build sorted modules with dependency order and circular dependency check
 		this.#sortedModules = this.buildSortedModules()
@@ -256,6 +263,9 @@ class TranspilerContextImpl implements TranspilerContext {
 			}
 		}
 		throw new Error(`Module not found for import path: ${importPath}`);
+	}
+	getNamespaces(): string[] {
+		return this.#namespaces;
 	}
 	addExport(name: string): void {
 		this.#exportVars.add(name);
