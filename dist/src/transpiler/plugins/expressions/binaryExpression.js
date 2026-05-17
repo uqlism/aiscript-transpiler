@@ -18,7 +18,8 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
                     ts.isObjectLiteralExpression(unwrapped.left))) {
                 return this.convertDestructuringAssignment(unwrapped);
             }
-            else if (unwrapped.operatorToken.kind === ts.SyntaxKind.QuestionQuestionEqualsToken) {
+            else if (unwrapped.operatorToken.kind ===
+                ts.SyntaxKind.QuestionQuestionEqualsToken) {
                 // ??= → a = a ?? b
                 return this.convertNullishAssignment(unwrapped);
             }
@@ -141,10 +142,22 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
         return {
             type: "block",
             statements: [
-                { type: "def", dest: tmp, expr: left, mut: false, attr: [], loc: dummyLoc },
+                {
+                    type: "def",
+                    dest: tmp,
+                    expr: left,
+                    mut: false,
+                    attr: [],
+                    loc: dummyLoc,
+                },
                 {
                     type: "if",
-                    cond: { type: "neq", left: tmp, right: { type: "null", loc: dummyLoc }, loc: dummyLoc },
+                    cond: {
+                        type: "neq",
+                        left: tmp,
+                        right: { type: "null", loc: dummyLoc },
+                        loc: dummyLoc,
+                    },
                     // biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
                     then: tmp,
                     elseif: [],
@@ -161,7 +174,12 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
         const right = this.converter.convertExpressionAsExpression(node.right);
         const ifExpr = {
             type: "if",
-            cond: { type: "eq", left, right: { type: "null", loc: dummyLoc }, loc: dummyLoc },
+            cond: {
+                type: "eq",
+                left,
+                right: { type: "null", loc: dummyLoc },
+                loc: dummyLoc,
+            },
             // biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
             then: { type: "assign", dest: left, expr: right, loc: dummyLoc },
             elseif: [],
@@ -214,12 +232,17 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
                 // key in obj → Obj:keys(obj).incl(key)
                 return {
                     type: "call",
-                    target: { type: "prop", target: {
+                    target: {
+                        type: "prop",
+                        target: {
                             type: "call",
                             target: { type: "identifier", name: "Obj:keys", loc: dummyLoc },
                             args: [right],
                             loc: dummyLoc,
-                        }, name: "incl", loc: dummyLoc },
+                        },
+                        name: "incl",
+                        loc: dummyLoc,
+                    },
                     args: [left],
                     loc: dummyLoc,
                 };

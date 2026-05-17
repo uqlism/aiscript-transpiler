@@ -59,10 +59,15 @@ export class ExpressionsPlugin extends TranspilerPlugin {
             const obj = this.converter.convertExpressionAsExpression(propNode.expression);
             const propName = propNode.name.text;
             // 名前空間アクセスはオプショナルチェーン不要
-            if (obj.type === "identifier" && this.converter.getNamespaces().includes(obj.name)) {
+            if (obj.type === "identifier" &&
+                this.converter.getNamespaces().includes(obj.name)) {
                 return {
                     type: "call",
-                    target: { type: "identifier", name: `${obj.name}:${propName}`, loc: dummyLoc },
+                    target: {
+                        type: "identifier",
+                        name: `${obj.name}:${propName}`,
+                        loc: dummyLoc,
+                    },
                     args,
                     loc: dummyLoc,
                 };
@@ -71,12 +76,34 @@ export class ExpressionsPlugin extends TranspilerPlugin {
             return {
                 type: "block",
                 statements: [
-                    { type: "def", dest: tmp, expr: obj, mut: false, attr: [], loc: dummyLoc },
+                    {
+                        type: "def",
+                        dest: tmp,
+                        expr: obj,
+                        mut: false,
+                        attr: [],
+                        loc: dummyLoc,
+                    },
                     {
                         type: "if",
-                        cond: { type: "neq", left: tmp, right: { type: "null", loc: dummyLoc }, loc: dummyLoc },
+                        cond: {
+                            type: "neq",
+                            left: tmp,
+                            right: { type: "null", loc: dummyLoc },
+                            loc: dummyLoc,
+                        },
                         // biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
-                        then: { type: "call", target: { type: "prop", target: tmp, name: propName, loc: dummyLoc }, args, loc: dummyLoc },
+                        then: {
+                            type: "call",
+                            target: {
+                                type: "prop",
+                                target: tmp,
+                                name: propName,
+                                loc: dummyLoc,
+                            },
+                            args,
+                            loc: dummyLoc,
+                        },
                         elseif: [],
                         else: { type: "null", loc: dummyLoc },
                         loc: dummyLoc,
@@ -94,10 +121,22 @@ export class ExpressionsPlugin extends TranspilerPlugin {
         return {
             type: "block",
             statements: [
-                { type: "def", dest: tmp, expr: target, mut: false, attr: [], loc: dummyLoc },
+                {
+                    type: "def",
+                    dest: tmp,
+                    expr: target,
+                    mut: false,
+                    attr: [],
+                    loc: dummyLoc,
+                },
                 {
                     type: "if",
-                    cond: { type: "neq", left: tmp, right: { type: "null", loc: dummyLoc }, loc: dummyLoc },
+                    cond: {
+                        type: "neq",
+                        left: tmp,
+                        right: { type: "null", loc: dummyLoc },
+                        loc: dummyLoc,
+                    },
                     // biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
                     then: { type: "call", target: tmp, args, loc: dummyLoc },
                     elseif: [],

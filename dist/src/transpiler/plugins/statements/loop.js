@@ -50,7 +50,14 @@ export class LoopStatementsPlugin extends TranspilerPlugin {
                     else {
                         // 分割代入: for (let [a, b] = arr; ...) など
                         const tmp = this.converter.getUniqueIdentifier();
-                        evalBody.push({ type: "def", dest: tmp, expr, mut: isMutable, attr: [], loc: dummyLoc });
+                        evalBody.push({
+                            type: "def",
+                            dest: tmp,
+                            expr,
+                            mut: isMutable,
+                            attr: [],
+                            loc: dummyLoc,
+                        });
                         evalBody.push(...convertDestructuringAssignment(nameNode, tmp, isMutable, this.converter));
                     }
                 }

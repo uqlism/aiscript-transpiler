@@ -73,14 +73,49 @@ export class LiteralPlugin extends TranspilerPlugin {
         };
     }
     convertArrayLiteralExpression(node) {
-        const value = node.elements.map((element) => {
-            return this.converter.convertExpressionAsExpression(element);
-        });
-        return {
-            type: "arr",
-            value,
-            loc: dummyLoc,
+        const hasSpread = node.elements.some(ts.isSpreadElement);
+        if (!hasSpread) {
+            return {
+                type: "arr",
+                value: node.elements.map((el) => this.converter.convertExpressionAsExpression(el)),
+                loc: dummyLoc,
+            };
+        }
+        return this.buildArrWithSpread(node.elements);
+    }
+    buildArrWithSpread(elements) {
+        // スプレッドで区切りながらセグメントリストを作る
+        const segments = [];
+        let current = [];
+        const flushCurrent = () => {
+            if (current.length > 0) {
+                segments.push({ type: "arr", value: current, loc: dummyLoc });
+                current = [];
+            }
         };
+        for (const el of elements) {
+            if (ts.isSpreadElement(el)) {
+                flushCurrent();
+                segments.push(this.converter.convertExpressionAsExpression(el.expression));
+            }
+            else {
+                current.push(this.converter.convertExpressionAsExpression(el));
+            }
+        }
+        flushCurrent();
+        // segments を arr.concat() で左畳み込み
+        let merged;
+        for (const seg of segments) {
+            merged = merged === undefined ? seg : {
+                type: "call",
+                target: { type: "prop", target: merged, name: "concat", loc: dummyLoc },
+                args: [seg],
+                loc: dummyLoc,
+            };
+        }
+        if (merged === undefined)
+            throw new Error("internal: no segments in spread array");
+        return merged;
     }
     convertObjectLiteralExpression(node) {
         // スプレッドがあるか確認

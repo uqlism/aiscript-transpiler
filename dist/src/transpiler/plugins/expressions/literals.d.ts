@@ -7,6 +7,7 @@ export declare class LiteralPlugin extends TranspilerPlugin {
     private convertTemplateExpression;
     private convertNoSubstitutionTemplateLiteral;
     private convertArrayLiteralExpression;
+    private buildArrWithSpread;
     private convertObjectLiteralExpression;
     private buildPlainObj;
     private buildObjWithSpread;

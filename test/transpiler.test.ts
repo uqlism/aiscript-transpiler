@@ -764,6 +764,40 @@ const testcases: TestCase[] = [
 		ts: `for (let [i, j] = [0, 0]; i < 10; i++) { }`,
 		valid: true,
 	},
+	// デフォルト値付き分割代入
+	{
+		title: "オブジェクト分割代入 デフォルト値",
+		ts: `const { a = 1, b = 2 } = { a: 10 };`,
+		valid: true,
+	},
+	{
+		title: "配列分割代入 デフォルト値",
+		ts: `const [x = 0, y = 0] = [1];`,
+		valid: true,
+	},
+	// 配列分割代入でのスプレッド
+	{
+		title: "配列分割代入 rest スプレッド",
+		ts: `const [first, ...rest] = [1, 2, 3];`,
+		valid: true,
+	},
+	// 配列リテラル内スプレッド
+	{
+		title: "配列スプレッド 先頭",
+		ts: `const arr = [1, 2]; const b = [...arr, 3];`,
+		ais: `let arr = [1, 2]; let b = arr.concat([3])`,
+	},
+	{
+		title: "配列スプレッド 混在",
+		ts: `const arr = [2]; const b = [1, ...arr, 3];`,
+		ais: `let arr = [2]; let b = [1].concat(arr).concat([3])`,
+	},
+	// export default
+	{
+		title: "export default 式",
+		ts: `export default 42;`,
+		ais: `let __default = 42`,
+	},
 	{
 		title: "[ERR] クラスのgetterはサポートされていない",
 		ts: `class MyClass { get value() { return 1; } }`,

@@ -25,6 +25,44 @@ export function convertDestructuringAssignment(
 		});
 	}
 
+	// デフォルト値付きのアクセスをラップするヘルパー
+	// elem.initializer があれば eval { let __tmp = src; if (__tmp != null) __tmp else default }
+	function withDefault(
+		src: Ast.Expression,
+		defaultInit: ts.Expression,
+	): Ast.Block {
+		const tmp = helper.getUniqueIdentifier();
+		const defaultVal = helper.convertExpressionAsExpression(defaultInit);
+		return {
+			type: "block",
+			statements: [
+				{
+					type: "def",
+					dest: tmp,
+					expr: src,
+					mut: false,
+					attr: [],
+					loc: dummyLoc,
+				},
+				{
+					type: "if",
+					cond: {
+						type: "neq",
+						left: tmp,
+						right: { type: "null", loc: dummyLoc },
+						loc: dummyLoc,
+					},
+					// biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
+					then: tmp,
+					elseif: [],
+					else: defaultVal,
+					loc: dummyLoc,
+				},
+			],
+			loc: dummyLoc,
+		};
+	}
+
 	if (ts.isObjectBindingPattern(nameNode)) {
 		// オブジェクト分割代入: { x, y } = obj; { x: a, y: b } = obj;
 		nameNode.elements.forEach((element) => {
@@ -33,30 +71,28 @@ export function convertDestructuringAssignment(
 			if (element.propertyName && ts.isIdentifier(element.propertyName)) {
 				// {x: a} 形式
 				const sourceKey = element.propertyName.text;
+				let propExpr: Ast.Expression = {
+					type: "prop",
+					target: sourceExpr,
+					name: sourceKey,
+					loc: dummyLoc,
+				};
+				if (element.initializer)
+					propExpr = withDefault(propExpr, element.initializer);
+
 				if (ts.isIdentifier(element.name)) {
 					const targetName = element.name.text;
-					// 変数名の検証
 					helper.validateVariableName(targetName, element.name);
-					pushStmt(targetName, {
-						type: "prop",
-						target: sourceExpr,
-						name: sourceKey,
-						loc: dummyLoc,
-					});
+					pushStmt(targetName, propExpr);
 				} else if (
 					ts.isObjectBindingPattern(element.name) ||
 					ts.isArrayBindingPattern(element.name)
 				) {
-					// ネストした分割代入: {x: {a, b}} または {x: [a, b]} 再帰的に分割代入を展開
+					// ネストした分割代入: {x: {a, b}} または {x: [a, b]}
 					stmts.push(
 						...convertDestructuringAssignment(
 							element.name,
-							{
-								type: "prop",
-								target: sourceExpr,
-								name: sourceKey,
-								loc: dummyLoc,
-							},
+							propExpr,
 							isMutable,
 							helper,
 						),
@@ -71,19 +107,20 @@ export function convertDestructuringAssignment(
 				// {x} 形式
 				const sourceKey = element.name.text;
 				const targetName = element.name.text;
-				// 変数名の検証
 				helper.validateVariableName(targetName, element.name);
-				pushStmt(targetName, {
+				let propExpr: Ast.Expression = {
 					type: "prop",
 					target: sourceExpr,
 					name: sourceKey,
 					loc: dummyLoc,
-				});
+				};
+				if (element.initializer)
+					propExpr = withDefault(propExpr, element.initializer);
+				pushStmt(targetName, propExpr);
 			} else if (
 				ts.isObjectBindingPattern(element.name) ||
 				ts.isArrayBindingPattern(element.name)
 			) {
-				// ショートハンドでのネスト（実際にはこのケースは稀）
 				helper.throwError(
 					"ショートハンドプロパティでのネストした分割代入はサポートされていません",
 					element.name,
@@ -100,32 +137,55 @@ export function convertDestructuringAssignment(
 		nameNode.elements.forEach((element, index) => {
 			if (!ts.isBindingElement(element)) return;
 
+			if (element.dotDotDotToken) {
+				// rest 要素: [a, ...rest] → rest = arr.slice(index, arr.len)
+				if (ts.isIdentifier(element.name)) {
+					const targetName = element.name.text;
+					helper.validateVariableName(targetName, element.name);
+					pushStmt(targetName, {
+						type: "call",
+						target: {
+							type: "prop",
+							target: sourceExpr,
+							name: "slice",
+							loc: dummyLoc,
+						},
+						args: [
+							{ type: "num", value: index, loc: dummyLoc },
+							{ type: "prop", target: sourceExpr, name: "len", loc: dummyLoc },
+						],
+						loc: dummyLoc,
+					});
+				} else {
+					helper.throwError(
+						"rest要素の分割代入パターンはサポートされていません",
+						element.name,
+					);
+				}
+				return;
+			}
+
+			let elemExpr: Ast.Expression = {
+				type: "index",
+				target: sourceExpr,
+				index: { type: "num", value: index, loc: dummyLoc },
+				loc: dummyLoc,
+			};
+			if (element.initializer)
+				elemExpr = withDefault(elemExpr, element.initializer);
+
 			if (ts.isIdentifier(element.name)) {
 				const targetName = element.name.text;
-				// 変数名の検証
-				if (helper.validateVariableName) {
-					helper.validateVariableName(targetName, element.name);
-				}
-				pushStmt(targetName, {
-					type: "index",
-					target: sourceExpr,
-					index: { type: "num", value: index, loc: dummyLoc },
-					loc: dummyLoc,
-				});
+				helper.validateVariableName(targetName, element.name);
+				pushStmt(targetName, elemExpr);
 			} else if (
 				ts.isObjectBindingPattern(element.name) ||
 				ts.isArrayBindingPattern(element.name)
 			) {
-				// ネストした分割代入: [a, [b, c]] または [a, {x, y}] 再帰的に分割代入を展開
 				stmts.push(
 					...convertDestructuringAssignment(
 						element.name,
-						{
-							type: "index",
-							target: sourceExpr,
-							index: { type: "num", value: index, loc: dummyLoc },
-							loc: dummyLoc,
-						},
+						elemExpr,
 						isMutable,
 						helper,
 					),

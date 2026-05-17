@@ -91,16 +91,65 @@ export class LiteralPlugin extends TranspilerPlugin {
 
 	private convertArrayLiteralExpression(
 		node: ts.ArrayLiteralExpression,
-	): Ast.Arr {
-		const value = node.elements.map((element) => {
-			return this.converter.convertExpressionAsExpression(element);
-		});
+	): Ast.Arr | Ast.Call {
+		const hasSpread = node.elements.some(ts.isSpreadElement);
+		if (!hasSpread) {
+			return {
+				type: "arr",
+				value: node.elements.map((el) =>
+					this.converter.convertExpressionAsExpression(el),
+				),
+				loc: dummyLoc,
+			};
+		}
+		return this.buildArrWithSpread(node.elements);
+	}
 
-		return {
-			type: "arr",
-			value,
-			loc: dummyLoc,
+	private buildArrWithSpread(elements: ts.NodeArray<ts.Expression>): Ast.Call {
+		// スプレッドで区切りながらセグメントリストを作る
+		const segments: Ast.Expression[] = [];
+		let current: Ast.Expression[] = [];
+
+		const flushCurrent = () => {
+			if (current.length > 0) {
+				segments.push({ type: "arr", value: current, loc: dummyLoc });
+				current = [];
+			}
 		};
+
+		for (const el of elements) {
+			if (ts.isSpreadElement(el)) {
+				flushCurrent();
+				segments.push(
+					this.converter.convertExpressionAsExpression(el.expression),
+				);
+			} else {
+				current.push(this.converter.convertExpressionAsExpression(el));
+			}
+		}
+		flushCurrent();
+
+		// segments を arr.concat() で左畳み込み
+		let merged: Ast.Expression | undefined;
+		for (const seg of segments) {
+			merged =
+				merged === undefined
+					? seg
+					: {
+							type: "call",
+							target: {
+								type: "prop",
+								target: merged,
+								name: "concat",
+								loc: dummyLoc,
+							},
+							args: [seg],
+							loc: dummyLoc,
+						};
+		}
+		if (merged === undefined)
+			throw new Error("internal: no segments in spread array");
+		return merged as Ast.Call;
 	}
 
 	private convertObjectLiteralExpression(
