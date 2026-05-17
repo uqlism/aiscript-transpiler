@@ -128,63 +128,64 @@ export class LiteralPlugin extends TranspilerPlugin {
     convertObjectLiteralExpression(node) {
         const hasSpread = node.properties.some(ts.isSpreadAssignment);
         const hasComputed = node.properties.some((p) => ts.isPropertyAssignment(p) && ts.isComputedPropertyName(p.name));
-        if (!hasSpread && !hasComputed) {
+        if (!hasSpread && !hasComputed)
             return this.buildPlainObj(node.properties);
-        }
-        if (hasSpread) {
-            return this.buildObjWithSpread(node.properties);
-        }
-        return this.buildObjWithComputed(node.properties);
+        // 算出キーがある場合はスプレッドの有無によらず統合ブロック方式を使う
+        if (hasComputed)
+            return this.buildDynamicObj(node.properties);
+        return this.buildObjWithSpread(node.properties);
     }
     /**
-     * 算出キー { [expr]: val } を含むオブジェクトを eval ブロックで生成する。
-     * eval { var __obj = ({}); __obj[key] = val; ...; __obj }
+     * スプレッドや算出キーを含むオブジェクトを eval ブロックで生成する。
+     * 左から順に処理し:
+     *   - 静的キー → 蓄積して Obj:merge でまとめてフラッシュ
+     *   - 算出キー → tmp[expr] = val でフラッシュ後インデックス代入
+     *   - スプレッド → Obj:merge(tmp, spread) でフラッシュ後マージ
      */
-    buildObjWithComputed(props) {
+    buildDynamicObj(props) {
         const tmp = this.converter.getUniqueIdentifier();
-        const staticValue = new Map();
-        const dynamicAssigns = [];
+        const statements = [
+            { type: "def", dest: tmp, expr: { type: "obj", value: new Map(), loc: dummyLoc }, mut: true, attr: [], loc: dummyLoc },
+        ];
+        let staticAccum = new Map();
+        const flushStatic = () => {
+            if (staticAccum.size === 0)
+                return;
+            statements.push({
+                type: "assign",
+                dest: tmp,
+                expr: { type: "call", target: { type: "identifier", name: "Obj:merge", loc: dummyLoc }, args: [tmp, { type: "obj", value: staticAccum, loc: dummyLoc }], loc: dummyLoc },
+                loc: dummyLoc,
+            });
+            staticAccum = new Map();
+        };
         for (const prop of props) {
-            if (ts.isPropertyAssignment(prop)) {
-                if (ts.isComputedPropertyName(prop.name)) {
-                    // [expr]: val → tmp[expr] = val
-                    dynamicAssigns.push({
-                        type: "assign",
-                        dest: {
-                            type: "index",
-                            target: tmp,
-                            index: this.converter.convertExpressionAsExpression(prop.name.expression),
-                            loc: dummyLoc,
-                        },
-                        expr: this.converter.convertExpressionAsExpression(prop.initializer),
-                        loc: dummyLoc,
-                    });
-                }
-                else {
-                    staticValue.set(prop.name.getText() || "", this.converter.convertExpressionAsExpression(prop.initializer));
-                }
+            if (ts.isSpreadAssignment(prop)) {
+                flushStatic();
+                const spread = this.converter.convertExpressionAsExpression(prop.expression);
+                statements.push({ type: "assign", dest: tmp, expr: { type: "call", target: { type: "identifier", name: "Obj:merge", loc: dummyLoc }, args: [tmp, spread], loc: dummyLoc }, loc: dummyLoc });
+            }
+            else if (ts.isPropertyAssignment(prop) && ts.isComputedPropertyName(prop.name)) {
+                flushStatic();
+                statements.push({ type: "assign", dest: { type: "index", target: tmp, index: this.converter.convertExpressionAsExpression(prop.name.expression), loc: dummyLoc }, expr: this.converter.convertExpressionAsExpression(prop.initializer), loc: dummyLoc });
+            }
+            else if (ts.isPropertyAssignment(prop)) {
+                staticAccum.set(prop.name.getText() || "", this.converter.convertExpressionAsExpression(prop.initializer));
             }
             else if (ts.isShorthandPropertyAssignment(prop)) {
                 const key = prop.name.getText();
-                staticValue.set(key, { type: "identifier", name: key, loc: dummyLoc });
+                staticAccum.set(key, { type: "identifier", name: key, loc: dummyLoc });
             }
             else if (ts.isMethodDeclaration(prop)) {
-                const key = prop.name.text || "";
-                staticValue.set(key, this.convertMethodToInlineFunction(prop));
+                staticAccum.set(prop.name.text || "", this.convertMethodToInlineFunction(prop));
             }
             else {
                 this.converter.throwError(`サポートされていないオブジェクトプロパティです: ${ts.SyntaxKind[prop.kind]}`, prop);
             }
         }
-        return {
-            type: "block",
-            statements: [
-                { type: "def", dest: tmp, expr: { type: "obj", value: staticValue, loc: dummyLoc }, mut: true, attr: [], loc: dummyLoc },
-                ...dynamicAssigns,
-                tmp,
-            ],
-            loc: dummyLoc,
-        };
+        flushStatic();
+        statements.push(tmp);
+        return { type: "block", statements, loc: dummyLoc };
     }
     buildPlainObj(props) {
         const value = new Map();

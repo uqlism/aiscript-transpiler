@@ -10,10 +10,13 @@ export declare class LiteralPlugin extends TranspilerPlugin {
     private buildArrWithSpread;
     private convertObjectLiteralExpression;
     /**
-     * 算出キー { [expr]: val } を含むオブジェクトを eval ブロックで生成する。
-     * eval { var __obj = ({}); __obj[key] = val; ...; __obj }
+     * スプレッドや算出キーを含むオブジェクトを eval ブロックで生成する。
+     * 左から順に処理し:
+     *   - 静的キー → 蓄積して Obj:merge でまとめてフラッシュ
+     *   - 算出キー → tmp[expr] = val でフラッシュ後インデックス代入
+     *   - スプレッド → Obj:merge(tmp, spread) でフラッシュ後マージ
      */
-    private buildObjWithComputed;
+    private buildDynamicObj;
     private buildPlainObj;
     private buildObjWithSpread;
     private convertMethodToInlineFunction;
