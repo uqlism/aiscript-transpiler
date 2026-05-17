@@ -150,7 +150,9 @@ function convertDestructuringAssignment(
 /**
  * BindingPatternをAiScript用の分割代入パターンに変換する
  */
-export function convertBindingPattern(bindingName: ts.BindingName): Ast.Expression {
+export function convertBindingPattern(
+	bindingName: ts.BindingName,
+): Ast.Expression {
 	if (ts.isIdentifier(bindingName)) {
 		return { type: "identifier", name: bindingName.text, loc: dummyLoc };
 	} else if (ts.isArrayBindingPattern(bindingName)) {
@@ -173,25 +175,29 @@ export function convertBindingPattern(bindingName: ts.BindingName): Ast.Expressi
 		// {x, y} や {x: a, y: b} のようなオブジェクト分割代入
 		return {
 			type: "obj",
-			value: new Map(bindingName.elements.map((element) => {
-				if (!ts.isBindingElement(element)) {
-					throw new Error("サポートされていないオブジェクト要素です");
-				}
+			value: new Map(
+				bindingName.elements.map((element) => {
+					if (!ts.isBindingElement(element)) {
+						throw new Error("サポートされていないオブジェクト要素です");
+					}
 
-				if (element.propertyName && ts.isIdentifier(element.propertyName)) {
-					// {x: a} 形式
-					const sourceKey = element.propertyName.text;
-					const destPattern = convertBindingPattern(element.name);
-					return [sourceKey, destPattern] as [string, Ast.Expression];
-				} else if (ts.isIdentifier(element.name)) {
-					// {x} 形式（ショートハンド）
-					const key = element.name.text;
-					const destPattern = convertBindingPattern(element.name);
-					return [key, destPattern] as [string, Ast.Expression];
-				} else {
-					throw new Error("サポートされていないオブジェクト分割代入パターンです");
-				}
-			})),
+					if (element.propertyName && ts.isIdentifier(element.propertyName)) {
+						// {x: a} 形式
+						const sourceKey = element.propertyName.text;
+						const destPattern = convertBindingPattern(element.name);
+						return [sourceKey, destPattern] as [string, Ast.Expression];
+					} else if (ts.isIdentifier(element.name)) {
+						// {x} 形式（ショートハンド）
+						const key = element.name.text;
+						const destPattern = convertBindingPattern(element.name);
+						return [key, destPattern] as [string, Ast.Expression];
+					} else {
+						throw new Error(
+							"サポートされていないオブジェクト分割代入パターンです",
+						);
+					}
+				}),
+			),
 			loc: dummyLoc,
 		} as Ast.Expression;
 	} else {
@@ -202,7 +208,9 @@ export function convertBindingPattern(bindingName: ts.BindingName): Ast.Expressi
 /**
  * 代入文用の分割代入パターンに変換する（ObjectLiteralExpression/ArrayLiteralExpression用）
  */
-export function convertDestructuringPattern(node: ts.Expression): Ast.Expression {
+export function convertDestructuringPattern(
+	node: ts.Expression,
+): Ast.Expression {
 	if (ts.isArrayLiteralExpression(node)) {
 		// [a, b] のような配列分割代入
 		return {
@@ -225,26 +233,38 @@ export function convertDestructuringPattern(node: ts.Expression): Ast.Expression
 		// {x, y} や {x: a, y: b} のようなオブジェクト分割代入
 		return {
 			type: "obj",
-			value: new Map(node.properties.map((prop) => {
-				if (ts.isPropertyAssignment(prop) && ts.isIdentifier(prop.name)) {
-					// {x: a} 形式
-					const sourceKey = prop.name.text;
-					if (ts.isIdentifier(prop.initializer)) {
-						const destPattern = { type: "identifier", name: prop.initializer.text, loc: dummyLoc };
-						return [sourceKey, destPattern] as [string, Ast.Expression];
+			value: new Map(
+				node.properties.map((prop) => {
+					if (ts.isPropertyAssignment(prop) && ts.isIdentifier(prop.name)) {
+						// {x: a} 形式
+						const sourceKey = prop.name.text;
+						if (ts.isIdentifier(prop.initializer)) {
+							const destPattern = {
+								type: "identifier",
+								name: prop.initializer.text,
+								loc: dummyLoc,
+							};
+							return [sourceKey, destPattern] as [string, Ast.Expression];
+						} else {
+							const destPattern = convertDestructuringPattern(prop.initializer);
+							return [sourceKey, destPattern] as [string, Ast.Expression];
+						}
+					} else if (ts.isShorthandPropertyAssignment(prop)) {
+						// {x} 形式（ショートハンド）
+						const key = prop.name.text;
+						const destPattern = {
+							type: "identifier",
+							name: prop.name.text,
+							loc: dummyLoc,
+						};
+						return [key, destPattern] as [string, Ast.Expression];
 					} else {
-						const destPattern = convertDestructuringPattern(prop.initializer);
-						return [sourceKey, destPattern] as [string, Ast.Expression];
+						throw new Error(
+							"サポートされていないオブジェクト分割代入パターンです",
+						);
 					}
-				} else if (ts.isShorthandPropertyAssignment(prop)) {
-					// {x} 形式（ショートハンド）
-					const key = prop.name.text;
-					const destPattern = { type: "identifier", name: prop.name.text, loc: dummyLoc };
-					return [key, destPattern] as [string, Ast.Expression];
-				} else {
-					throw new Error("サポートされていないオブジェクト分割代入パターンです");
-				}
-			})),
+				}),
+			),
 			loc: dummyLoc,
 		} as Ast.Expression;
 	} else if (ts.isIdentifier(node)) {

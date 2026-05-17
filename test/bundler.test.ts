@@ -361,7 +361,7 @@ function transpile(modules: { [key: string]: string }) {
 
 	const program = ts.createProgram(Object.keys(files), compilerOptions, {
 		getSourceFile: (fileName) => files[fileName],
-		writeFile: () => { },
+		writeFile: () => {},
 		getCurrentDirectory: () => process.cwd(),
 		getDirectories: () => [],
 		fileExists: (fileName) => fileName in files,
@@ -389,9 +389,8 @@ describe.only("AiScript Bundler", () => {
 			);
 		}
 		if (expectedErr) {
-			expect(() => transpile(modules as any)).toThrow(expectedErr)
+			expect(() => transpile(modules as any)).toThrow(expectedErr);
 		}
-
 	});
 });
 describe("Error position verification", () => {

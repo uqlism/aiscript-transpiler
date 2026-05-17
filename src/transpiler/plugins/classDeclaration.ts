@@ -21,9 +21,7 @@ export class ClassDeclarationPlugin extends TranspilerPlugin {
 		}
 	};
 
-	private convertClassDeclaration(
-		node: ts.ClassDeclaration,
-	): Ast.Definition[] {
+	private convertClassDeclaration(node: ts.ClassDeclaration): Ast.Definition[] {
 		const className = node.name?.text;
 		if (!className) {
 			this.converter.throwError("クラス名がありません", node);

@@ -70,7 +70,6 @@ export class VariableStatementPlugin extends TranspilerPlugin {
 		return definitions;
 	}
 
-
 	private hasExportModifier(node: ts.Node): boolean {
 		return (
 			ts.canHaveModifiers(node) &&

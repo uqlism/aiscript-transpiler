@@ -2,11 +2,11 @@ import type { Ast } from "@syuilo/aiscript";
 import ts from "typescript";
 import { TranspilerPlugin } from "../../base.js";
 import { dummyLoc } from "../../consts.js";
+import { convertDestructuringPattern } from "../../utils/destructuring.js";
 import {
 	validateBooleanLike,
 	validateNumberLike,
 } from "../../utils/typeValidation.js";
-import { convertDestructuringPattern } from "../../utils/destructuring.js";
 
 export class BinaryExpressionPlugin extends TranspilerPlugin {
 	override tryConvertExpressionAsExpression = (
@@ -54,14 +54,16 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
 		const leftPattern = convertDestructuringPattern(node.left);
 
 		// AiScriptネイティブ分割代入として出力
-		return [{
-			type: "def",
-			dest: leftPattern,
-			expr: rightExpr,
-			mut: false,
-			attr: [],
-			loc: dummyLoc,
-		}];
+		return [
+			{
+				type: "def",
+				dest: leftPattern,
+				expr: rightExpr,
+				mut: false,
+				attr: [],
+				loc: dummyLoc,
+			},
+		];
 	}
 
 	private convertBinaryAssignExpression(
@@ -286,5 +288,4 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
 			);
 		}
 	}
-
 }

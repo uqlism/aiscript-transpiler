@@ -121,7 +121,9 @@ export class LiteralPlugin extends TranspilerPlugin {
 		for (const prop of props) {
 			if (ts.isPropertyAssignment(prop)) {
 				const key = prop.name?.getText() || "";
-				const val = this.converter.convertExpressionAsExpression(prop.initializer);
+				const val = this.converter.convertExpressionAsExpression(
+					prop.initializer,
+				);
 				value.set(key, val);
 			} else if (ts.isShorthandPropertyAssignment(prop)) {
 				const key = prop.name.getText();
@@ -156,10 +158,15 @@ export class LiteralPlugin extends TranspilerPlugin {
 		for (const prop of props) {
 			if (ts.isSpreadAssignment(prop)) {
 				flushCurrent();
-				segments.push(this.converter.convertExpressionAsExpression(prop.expression));
+				segments.push(
+					this.converter.convertExpressionAsExpression(prop.expression),
+				);
 			} else if (ts.isPropertyAssignment(prop)) {
 				const key = prop.name?.getText() || "";
-				current.set(key, this.converter.convertExpressionAsExpression(prop.initializer));
+				current.set(
+					key,
+					this.converter.convertExpressionAsExpression(prop.initializer),
+				);
 			} else if (ts.isShorthandPropertyAssignment(prop)) {
 				const key = prop.name.getText();
 				current.set(key, { type: "identifier", name: key, loc: dummyLoc });
@@ -178,15 +185,19 @@ export class LiteralPlugin extends TranspilerPlugin {
 		// segments を Obj:merge でたたみ込む（左畳み込み）
 		let merged: Ast.Expression | undefined;
 		for (const seg of segments) {
-			merged = merged === undefined ? seg : {
-				type: "call",
-				target: { type: "identifier", name: "Obj:merge", loc: dummyLoc },
-				args: [merged, seg],
-				loc: dummyLoc,
-			};
+			merged =
+				merged === undefined
+					? seg
+					: {
+							type: "call",
+							target: { type: "identifier", name: "Obj:merge", loc: dummyLoc },
+							args: [merged, seg],
+							loc: dummyLoc,
+						};
 		}
 		// スプレッドがある場合は必ず1つ以上のセグメントが存在する（到達不能）
-		if (merged === undefined) throw new Error("internal: no segments in spread object");
+		if (merged === undefined)
+			throw new Error("internal: no segments in spread object");
 		return merged as Ast.Call;
 	}
 

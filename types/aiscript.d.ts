@@ -19,40 +19,40 @@ interface Array<T> {
 		initial: U,
 	): U;
 	find(func: (item: T, index: number) => boolean): T | undefined;
-	index_of(val: T, fromIndex?: number): number
+	index_of(val: T, fromIndex?: number): number;
 	reverse(): undefined;
 	copy(): T[];
 
 	sort(comp: (a: T, b: T) => number): T[];
-	fill(val?: T, fromIndex?: number, toIndex?: number): T[]
-	fill(): undefined[]
-	repeat(times: number): T[]
-	splice(index: number, remove_count?: number, items?: T[]): T[]
-	flat(depth?: number): any[]
-	flat_map<U>(func: (item: T, index: number) => U[] | U): U[]
-	insert(index: number, item: T): undefined
-	remove(index: number): T | null
-	every(func: (item: T, index: number) => boolean): boolean
-	some(func: (item: T, index: number) => boolean): boolean
+	fill(val?: T, fromIndex?: number, toIndex?: number): T[];
+	fill(): undefined[];
+	repeat(times: number): T[];
+	splice(index: number, remove_count?: number, items?: T[]): T[];
+	flat(depth?: number): any[];
+	flat_map<U>(func: (item: T, index: number) => U[] | U): U[];
+	insert(index: number, item: T): undefined;
+	remove(index: number): T | null;
+	every(func: (item: T, index: number) => boolean): boolean;
+	some(func: (item: T, index: number) => boolean): boolean;
 }
 
 // biome-ignore lint/suspicious/noEmptyInterface: Ignore
-interface Boolean { }
+interface Boolean {}
 
 // biome-ignore lint/suspicious/noEmptyInterface: Ignore
-interface Function { }
+interface Function {}
 
 // biome-ignore lint/suspicious/noEmptyInterface: Ignore
-interface CallableFunction extends Function { }
+interface CallableFunction extends Function {}
 
 // biome-ignore lint/suspicious/noEmptyInterface: Ignore
-interface NewableFunction extends Function { }
+interface NewableFunction extends Function {}
 
 // biome-ignore lint/suspicious/noEmptyInterface: Ignore
-interface RegExp { }
+interface RegExp {}
 
 // biome-ignore lint/suspicious/noEmptyInterface: Ignore
-interface IArguments { }
+interface IArguments {}
 
 interface Number {
 	to_str(): string;
@@ -125,7 +125,9 @@ declare namespace Math {
 	// random functions
 	function rnd(): number;
 	function rnd(min: number, max: number): number;
-	function gen_rng(seed: number | string): (min?: number, max?: number) => number
+	function gen_rng(
+		seed: number | string,
+	): (min?: number, max?: number) => number;
 
 	// Trigonometric functions
 	function sin(x: number): number;

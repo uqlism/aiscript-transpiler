@@ -755,7 +755,7 @@ function transpile(value: string) {
 		compilerOptions,
 		{
 			getSourceFile: (fileName) => (files as any)[fileName],
-			writeFile: () => { },
+			writeFile: () => {},
 			getCurrentDirectory: () => process.cwd(),
 			getDirectories: () => [],
 			fileExists: (fileName) => fileName in files,

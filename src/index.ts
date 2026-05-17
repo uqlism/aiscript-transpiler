@@ -1,2 +1,2 @@
-export { TypeScriptToAiScriptTranspiler } from "./transpiler/main.js";
 export { defaultNamespaces } from "./transpiler/consts.js";
+export { TypeScriptToAiScriptTranspiler } from "./transpiler/main.js";

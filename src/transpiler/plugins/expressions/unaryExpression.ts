@@ -15,7 +15,7 @@ export class UnaryExpressionPlugin extends TranspilerPlugin {
 			case ts.isPrefixUnaryExpression(node):
 				return this.convertPrefixUnaryExpressionAsExpression(node);
 			case ts.isPostfixUnaryExpression(node):
-				return this.convertPostfixUnaryExpressionAsExpression(node)
+				return this.convertPostfixUnaryExpressionAsExpression(node);
 		}
 	};
 
@@ -24,7 +24,7 @@ export class UnaryExpressionPlugin extends TranspilerPlugin {
 	): (Ast.Expression | Ast.Statement)[] | undefined => {
 		switch (true) {
 			case ts.isPrefixUnaryExpression(node):
-				return [this.convertPrefixUnaryExpressionAsStatement(node)]
+				return [this.convertPrefixUnaryExpressionAsStatement(node)];
 			case ts.isPostfixUnaryExpression(node):
 				return [this.convertPostfixUnaryExpressionAsStatement(node)];
 		}

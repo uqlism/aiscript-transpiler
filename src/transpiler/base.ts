@@ -57,9 +57,15 @@ export class Transpiler {
 		entrySourceFile: ts.SourceFile,
 		doTypeCheck = true,
 	): Ast.Node[] {
-
-		const context = new TranspilerContextImpl(entrySourceFile, doTypeCheck, program, this.#namespaces)
-		this.#pluiginFactories.forEach(x => { context.addPlugin(x) });
+		const context = new TranspilerContextImpl(
+			entrySourceFile,
+			doTypeCheck,
+			program,
+			this.#namespaces,
+		);
+		this.#pluiginFactories.forEach((x) => {
+			context.addPlugin(x);
+		});
 
 		// Get modules sorted by dependency order (includes circular dependency check)
 		const sortedModules = context.getSortedModules();
@@ -86,7 +92,7 @@ export class Transpiler {
 						throw new Error("unknown node");
 				}
 			});
-			const exportVars = context.popExports()
+			const exportVars = context.popExports();
 			// If there are exports, add an export object at the end
 			if (exportVars.size > 0) {
 				const exportObj: Ast.Obj = {
@@ -172,7 +178,11 @@ class TranspilerContextImpl implements TranspilerContext {
 	#uniqueIdCounter = 0;
 	#program: ts.Program;
 	#exportVars: Set<string>;
-	#sortedModules: { source: ts.SourceFile; fileName: string; id?: Ast.Identifier; }[];
+	#sortedModules: {
+		source: ts.SourceFile;
+		fileName: string;
+		id?: Ast.Identifier;
+	}[];
 	#namespaces: string[];
 	constructor(
 		entrySourceFile: ts.SourceFile,
@@ -180,19 +190,21 @@ class TranspilerContextImpl implements TranspilerContext {
 		program: ts.Program,
 		namespaces: string[],
 	) {
-		this.#entrySourceFile = entrySourceFile
-		this.#program = program
-		this.#plugins = []
-		this.typeChecker = program.getTypeChecker()
-		this.doTypeCheck = doTypeCheck
-		this.#uniqueIdCounter = 0
+		this.#entrySourceFile = entrySourceFile;
+		this.#program = program;
+		this.#plugins = [];
+		this.typeChecker = program.getTypeChecker();
+		this.doTypeCheck = doTypeCheck;
+		this.#uniqueIdCounter = 0;
 		this.#exportVars = new Set<string>();
 		this.#namespaces = namespaces;
 
 		// Build sorted modules with dependency order and circular dependency check
-		this.#sortedModules = this.buildSortedModules()
+		this.#sortedModules = this.buildSortedModules();
 	}
-	addPlugin(pluginFactory: new (converter: TranspilerContext) => TranspilerPlugin) {
+	addPlugin(
+		pluginFactory: new (converter: TranspilerContext) => TranspilerPlugin,
+	) {
 		this.#plugins.push(new pluginFactory(this));
 	}
 	convertExpressionAsExpression(expr: ts.Expression): Ast.Expression {
@@ -202,9 +214,15 @@ class TranspilerContextImpl implements TranspilerContext {
 				return result;
 			}
 		}
-		throw new TranspilerError("Expression not supported", expr, this.#entrySourceFile,);
+		throw new TranspilerError(
+			"Expression not supported",
+			expr,
+			this.#entrySourceFile,
+		);
 	}
-	convertExpressionAsStatements(expr: ts.Expression): (Ast.Expression | Ast.Statement)[] {
+	convertExpressionAsStatements(
+		expr: ts.Expression,
+	): (Ast.Expression | Ast.Statement)[] {
 		for (const plugin of this.#plugins) {
 			const result = plugin.tryConvertExpressionAsStatements?.(expr);
 			if (result !== undefined) {
@@ -213,27 +231,37 @@ class TranspilerContextImpl implements TranspilerContext {
 		}
 		return [this.convertExpressionAsExpression(expr)];
 	}
-	convertStatementAsStatements(node: ts.Statement): (Ast.Expression | Ast.Statement)[] {
+	convertStatementAsStatements(
+		node: ts.Statement,
+	): (Ast.Expression | Ast.Statement)[] {
 		for (const plugin of this.#plugins) {
 			const result = plugin.tryConvertStatementAsStatements?.(node);
 			if (result !== undefined) {
 				return result;
 			}
 		}
-		throw new TranspilerError(`Statement not supported ${node.getText()}`, node, this.#entrySourceFile,);
+		throw new TranspilerError(
+			`Statement not supported ${node.getText()}`,
+			node,
+			this.#entrySourceFile,
+		);
 	}
 	getUniqueIdentifier(): Ast.Identifier {
 		this.#uniqueIdCounter++;
 		const idStr = this.#uniqueIdCounter.toString(36).padStart(5, "0");
 		const name = `__${idStr}`;
-		return { type: "identifier", name, loc: { start: { column: 0, line: 0 }, end: { column: 0, line: 0 } }, };
+		return {
+			type: "identifier",
+			name,
+			loc: { start: { column: 0, line: 0 }, end: { column: 0, line: 0 } },
+		};
 	}
 	validateVariableName(name: string, node: ts.Node): void {
 		if (reservedWords.includes(name)) {
-			this.throwError("予約語を変数名にすることはできません", node)
+			this.throwError("予約語を変数名にすることはできません", node);
 		}
 		if (name.startsWith("__")) {
-			this.throwError("__から始まる変数名は使用できません", node)
+			this.throwError("__から始まる変数名は使用できません", node);
 		}
 	}
 	throwError(message: string, node: ts.Node): never {
@@ -252,13 +280,17 @@ class TranspilerContextImpl implements TranspilerContext {
 
 		if (resolution.resolvedModule?.resolvedFileName) {
 			const resolvedPath = resolution.resolvedModule.resolvedFileName;
-			const module = this.#sortedModules.find(m => m.fileName === resolvedPath);
+			const module = this.#sortedModules.find(
+				(m) => m.fileName === resolvedPath,
+			);
 			if (module?.id) return module.id;
 		}
 
 		if ("failedLookupLocations" in resolution) {
 			for (const lookupPath of resolution.failedLookupLocations as string[]) {
-				const module = this.#sortedModules.find(m => m.fileName === lookupPath);
+				const module = this.#sortedModules.find(
+					(m) => m.fileName === lookupPath,
+				);
 				if (module?.id) return module.id;
 			}
 		}
@@ -271,12 +303,12 @@ class TranspilerContextImpl implements TranspilerContext {
 		this.#exportVars.add(name);
 	}
 	popExports(): Set<string> {
-		const result = this.#exportVars
+		const result = this.#exportVars;
 		this.#exportVars = new Set<string>();
-		return result
+		return result;
 	}
 	/** エントリファイル以外のファイルをidとともに返す */
-	* getImportedModules() {
+	*getImportedModules() {
 		for (const module of this.#sortedModules) {
 			if (module.source !== this.#entrySourceFile && module.id) {
 				yield { source: module.source, id: module.id };
@@ -284,27 +316,39 @@ class TranspilerContextImpl implements TranspilerContext {
 		}
 	}
 
-
 	/**
 	 * 依存関係を解析し、循環参照をチェックしつつ、依存関係順にソートされたモジュールリストを構築する
 	 * 子モジュールから親モジュール順 (subSubModule, subModule, entryModule)
 	 */
-	buildSortedModules(): { source: ts.SourceFile, fileName: string, id?: Ast.Identifier }[] {
+	buildSortedModules(): {
+		source: ts.SourceFile;
+		fileName: string;
+		id?: Ast.Identifier;
+	}[] {
 		const dependencyGraph = new Map<string, Set<string>>();
 
-		const sourceFiles = this.#program.getSourceFiles().filter(sourceFile => {
-			if (sourceFile.fileName.includes("node_modules") || sourceFile.fileName.includes("lib.")) { return false }
-			return true
-		})
+		const sourceFiles = this.#program.getSourceFiles().filter((sourceFile) => {
+			if (
+				sourceFile.fileName.includes("node_modules") ||
+				sourceFile.fileName.includes("lib.")
+			) {
+				return false;
+			}
+			return true;
+		});
 
-		const allFiles = new Set(sourceFiles.map(x => x.fileName))
+		const allFiles = new Set(sourceFiles.map((x) => x.fileName));
 
 		// build dependency graph
 		for (const sourceFile of sourceFiles) {
 			const dependencies = new Set<string>();
 
 			ts.forEachChild(sourceFile, (node) => {
-				if (ts.isImportDeclaration(node) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
+				if (
+					ts.isImportDeclaration(node) &&
+					node.moduleSpecifier &&
+					ts.isStringLiteral(node.moduleSpecifier)
+				) {
 					const importPath = node.moduleSpecifier.text;
 
 					// Resolve the import path
@@ -326,7 +370,9 @@ class TranspilerContextImpl implements TranspilerContext {
 							}
 						}
 					} else {
-						throw new Error(`Module not found: ${importPath} from ${sourceFile.fileName}`);
+						throw new Error(
+							`Module not found: ${importPath} from ${sourceFile.fileName}`,
+						);
 					}
 				}
 			});
@@ -343,7 +389,7 @@ class TranspilerContextImpl implements TranspilerContext {
 				// Found circular dependency
 				const cycleStart = path.indexOf(fileName);
 				const cycle = path.slice(cycleStart).concat([fileName]);
-				throw new Error(`循環参照が検出されました: ${cycle.join(' -> ')}`);
+				throw new Error(`循環参照が検出されました: ${cycle.join(" -> ")}`);
 			}
 
 			if (visited.has(fileName)) {
@@ -373,7 +419,11 @@ class TranspilerContextImpl implements TranspilerContext {
 		}
 
 		// Convert to result format and generate IDs in sorted order
-		const result: { source: ts.SourceFile, fileName: string, id?: Ast.Identifier }[] = [];
+		const result: {
+			source: ts.SourceFile;
+			fileName: string;
+			id?: Ast.Identifier;
+		}[] = [];
 		for (const fileName of sortedFiles) {
 			const sourceFile = this.#program.getSourceFile(fileName);
 			if (!sourceFile) {
@@ -381,14 +431,21 @@ class TranspilerContextImpl implements TranspilerContext {
 			}
 
 			// Generate unique ID for non-entry modules in sorted order
-			const moduleId = sourceFile !== this.#entrySourceFile ? this.getUniqueIdentifier() : undefined;
+			const moduleId =
+				sourceFile !== this.#entrySourceFile
+					? this.getUniqueIdentifier()
+					: undefined;
 			result.push({ source: sourceFile, fileName, id: moduleId });
 		}
 
 		return result;
 	}
 
-	getSortedModules(): { source: ts.SourceFile, fileName: string, id?: Ast.Identifier }[] {
+	getSortedModules(): {
+		source: ts.SourceFile;
+		fileName: string;
+		id?: Ast.Identifier;
+	}[] {
 		return this.#sortedModules;
 	}
 }

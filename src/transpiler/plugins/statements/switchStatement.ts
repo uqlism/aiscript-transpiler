@@ -44,7 +44,9 @@ export class SwitchStatementPlugin extends TranspilerPlugin {
 					body: caseBody,
 				});
 			} else if (ts.isDefaultClause(clause)) {
-				const defaultStatements = this.convertSwitchCaseBodyToStatements(clause.statements);
+				const defaultStatements = this.convertSwitchCaseBodyToStatements(
+					clause.statements,
+				);
 				defaultBody = {
 					type: "block",
 					statements: defaultStatements,
@@ -57,7 +59,7 @@ export class SwitchStatementPlugin extends TranspilerPlugin {
 		const matchStatement: Ast.Match = {
 			type: "match",
 			about: switchExpr,
-			qs: cases.map(caseItem => ({
+			qs: cases.map((caseItem) => ({
 				q: caseItem.cond,
 				a: caseItem.body,
 			})),
