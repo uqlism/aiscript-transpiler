@@ -43,6 +43,12 @@ interface Boolean { }
 interface Function { }
 
 // biome-ignore lint/suspicious/noEmptyInterface: Ignore
+interface CallableFunction extends Function { }
+
+// biome-ignore lint/suspicious/noEmptyInterface: Ignore
+interface NewableFunction extends Function { }
+
+// biome-ignore lint/suspicious/noEmptyInterface: Ignore
 interface RegExp { }
 
 // biome-ignore lint/suspicious/noEmptyInterface: Ignore
@@ -90,7 +96,6 @@ declare namespace Core {
 	function abort(message: string): never;
 }
 
-// @ts-expect-error Duplicate identifier 'Math'.
 declare namespace Math {
 	// Constants
 	// biome-ignore lint/suspicious/noShadowRestrictedNames: AiScript Const Name
@@ -159,7 +164,6 @@ declare namespace Json {
 	function parsable(str: string): boolean;
 }
 
-// @ts-expect-error Duplicate identifier 'Date'.
 declare namespace Date {
 	function now(): number;
 	function year(date?: number): number;

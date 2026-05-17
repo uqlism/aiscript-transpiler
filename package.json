@@ -10,7 +10,7 @@
 		"./stringifier": "./dist/src/stringifier.js",
 		"./bundler": "./dist/src/bundler.js",
 		"./types/aiscript": "./types/aiscript.d.ts",
-		"./types/misskey": "./types/misskey_aiscript.d.ts"
+		"./types/misskey": "./types/misskey.d.ts"
 	},
 	"bin": {
 		"aiscript-transpile": "./dist/bin/cli.js"

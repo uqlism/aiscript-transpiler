@@ -105,46 +105,88 @@ export class LiteralPlugin extends TranspilerPlugin {
 
 	private convertObjectLiteralExpression(
 		node: ts.ObjectLiteralExpression,
+	): Ast.Obj | Ast.Call {
+		// スプレッドがあるか確認
+		const hasSpread = node.properties.some(ts.isSpreadAssignment);
+		if (!hasSpread) {
+			return this.buildPlainObj(node.properties);
+		}
+		return this.buildObjWithSpread(node.properties);
+	}
+
+	private buildPlainObj(
+		props: ts.NodeArray<ts.ObjectLiteralElementLike>,
 	): Ast.Obj {
 		const value = new Map<string, Ast.Expression>();
-
-		node.properties.forEach((prop) => {
+		for (const prop of props) {
 			if (ts.isPropertyAssignment(prop)) {
 				const key = prop.name?.getText() || "";
-				const val = this.converter.convertExpressionAsExpression(
-					prop.initializer,
-				);
+				const val = this.converter.convertExpressionAsExpression(prop.initializer);
 				value.set(key, val);
 			} else if (ts.isShorthandPropertyAssignment(prop)) {
-				// ショートハンドプロパティ: { foo } → { foo: foo }
 				const key = prop.name.getText();
-				const val: Ast.Identifier = {
-					type: "identifier",
-					name: key,
-					loc: dummyLoc,
-				};
-				value.set(key, val);
+				value.set(key, { type: "identifier", name: key, loc: dummyLoc });
 			} else if (ts.isMethodDeclaration(prop)) {
-				// メソッド定義: { foo(x, y) { return x + y } }
-				// → { foo: @(x, y) { return x + y } }
 				const key = prop.name?.getText() || "";
-
-				// メソッドを関数式に直接変換
-				const methodFunction = this.convertMethodToInlineFunction(prop);
-				value.set(key, methodFunction);
+				value.set(key, this.convertMethodToInlineFunction(prop));
 			} else {
 				this.converter.throwError(
 					`サポートされていないオブジェクトプロパティです: ${ts.SyntaxKind[prop.kind]}`,
 					prop,
 				);
 			}
-		});
+		}
+		return { type: "obj", value, loc: dummyLoc };
+	}
 
-		return {
-			type: "obj",
-			value,
-			loc: dummyLoc,
+	private buildObjWithSpread(
+		props: ts.NodeArray<ts.ObjectLiteralElementLike>,
+	): Ast.Call {
+		// スプレッドで区切りながらセグメントのリストを作る
+		const segments: Ast.Expression[] = [];
+		let current = new Map<string, Ast.Expression>();
+
+		const flushCurrent = () => {
+			if (current.size > 0) {
+				segments.push({ type: "obj", value: current, loc: dummyLoc });
+				current = new Map();
+			}
 		};
+
+		for (const prop of props) {
+			if (ts.isSpreadAssignment(prop)) {
+				flushCurrent();
+				segments.push(this.converter.convertExpressionAsExpression(prop.expression));
+			} else if (ts.isPropertyAssignment(prop)) {
+				const key = prop.name?.getText() || "";
+				current.set(key, this.converter.convertExpressionAsExpression(prop.initializer));
+			} else if (ts.isShorthandPropertyAssignment(prop)) {
+				const key = prop.name.getText();
+				current.set(key, { type: "identifier", name: key, loc: dummyLoc });
+			} else if (ts.isMethodDeclaration(prop)) {
+				const key = prop.name?.getText() || "";
+				current.set(key, this.convertMethodToInlineFunction(prop));
+			} else {
+				this.converter.throwError(
+					`サポートされていないオブジェクトプロパティです: ${ts.SyntaxKind[prop.kind]}`,
+					prop,
+				);
+			}
+		}
+		flushCurrent();
+
+		// segments を Obj:merge でたたみ込む（左畳み込み）
+		// スプレッドがある場合は必ず1つ以上のセグメントが存在する
+		let merged: Ast.Expression = segments[0]!;
+		for (let i = 1; i < segments.length; i++) {
+			merged = {
+				type: "call",
+				target: { type: "identifier", name: "Obj:merge", loc: dummyLoc },
+				args: [merged, segments[i]!],
+				loc: dummyLoc,
+			};
+		}
+		return merged as Ast.Call;
 	}
 
 	private convertMethodToInlineFunction(node: ts.MethodDeclaration): Ast.Fn {

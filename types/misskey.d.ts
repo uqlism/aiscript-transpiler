@@ -117,7 +117,7 @@ declare namespace Ui {
 		caption?: string;
 	};
 	type Select<T> = {
-		items: { text: "A"; value: T }[];
+		items: { text: string; value: T }[];
 		onChange: (value: T) => void;
 		default: T;
 		label?: string;
