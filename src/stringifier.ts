@@ -2,12 +2,11 @@ import type { Ast } from "@syuilo/aiscript";
 import { version } from "./transpiler/consts.js";
 
 // AiScript パーサーの演算子優先度（低=弱く結合, 高=強く結合）
-// 実測による: ! は標準通り高優先度（!i < 10 → (!i) < 10）
-// || と && は同一優先度（区別なし・左結合）
-// *, /, %, ^ も同一優先度
+// 実測による: ! は高優先度、&& は || より高い（JS と同じ標準的な順序）
+// *, /, %, ^ は同一優先度
 const PREC: Partial<Record<string, number>> = {
 	or: 1,
-	and: 1,
+	and: 2,
 	eq: 4,
 	neq: 4,
 	lt: 4,
@@ -495,7 +494,7 @@ export class AiScriptStringifier {
 
 	// Binary operators（外側の () は不要、子は childExpr で優先度に従ってラップ）
 	private stringifyAnd(node: Ast.And, indentLevel: number): string {
-		const P = 1;
+		const P = 2; // and > or
 		return `${this.childExpr(node.left, P, indentLevel)} && ${this.childExpr(node.right, P, indentLevel, true)}`;
 	}
 

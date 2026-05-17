@@ -1,14 +1,25 @@
 import { version } from "./transpiler/consts.js";
 // AiScript パーサーの演算子優先度（低=弱く結合, 高=強く結合）
-// 実測による: ! は標準通り高優先度（!i < 10 → (!i) < 10）
-// || と && は同一優先度（区別なし・左結合）
-// *, /, %, ^ も同一優先度
+// 実測による: ! は高優先度、&& は || より高い（JS と同じ標準的な順序）
+// *, /, %, ^ は同一優先度
 const PREC = {
-    or: 1, and: 1,
-    eq: 4, neq: 4, lt: 4, lteq: 4, gt: 4, gteq: 4,
-    add: 6, sub: 6,
-    mul: 7, div: 7, rem: 7, pow: 7,
-    not: 8, plus: 8, minus: 8,
+    or: 1,
+    and: 2,
+    eq: 4,
+    neq: 4,
+    lt: 4,
+    lteq: 4,
+    gt: 4,
+    gteq: 4,
+    add: 6,
+    sub: 6,
+    mul: 7,
+    div: 7,
+    rem: 7,
+    pow: 7,
+    not: 8,
+    plus: 8,
+    minus: 8,
 };
 function exprPrec(node) {
     return PREC[node.type] ?? 100;
@@ -389,7 +400,7 @@ export class AiScriptStringifier {
     }
     // Binary operators（外側の () は不要、子は childExpr で優先度に従ってラップ）
     stringifyAnd(node, indentLevel) {
-        const P = 1;
+        const P = 2; // and > or
         return `${this.childExpr(node.left, P, indentLevel)} && ${this.childExpr(node.right, P, indentLevel, true)}`;
     }
     stringifyOr(node, indentLevel) {
