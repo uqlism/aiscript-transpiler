@@ -1,7 +1,7 @@
 import ts from "typescript";
 import { TranspilerPlugin } from "../base.js";
 import { dummyLoc } from "../consts.js";
-import { validateBooleanExpression } from "../utils/typeValidation.js";
+import { coerceToBool } from "../utils/typeValidation.js";
 export class ConditionPlugin extends TranspilerPlugin {
     tryConvertStatementAsStatements = (node) => {
         if (ts.isIfStatement(node)) {
@@ -14,8 +14,7 @@ export class ConditionPlugin extends TranspilerPlugin {
         }
     };
     convertConditionalExpression(node) {
-        validateBooleanExpression(node.condition, this.converter);
-        const cond = this.converter.convertExpressionAsExpression(node.condition);
+        const cond = coerceToBool(node.condition, this.converter.convertExpressionAsExpression(node.condition), this.converter);
         const then = this.converter.convertExpressionAsExpression(node.whenTrue);
         const elseif = [];
         let elseClause;
@@ -23,8 +22,7 @@ export class ConditionPlugin extends TranspilerPlugin {
         while (current) {
             if (ts.isConditionalExpression(current)) {
                 // else if
-                validateBooleanExpression(current.condition, this.converter);
-                const elifCond = this.converter.convertExpressionAsExpression(current.condition);
+                const elifCond = coerceToBool(current.condition, this.converter.convertExpressionAsExpression(current.condition), this.converter);
                 const elifThen = this.converter.convertExpressionAsExpression(current.whenTrue);
                 // biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
                 elseif.push({ cond: elifCond, then: elifThen });
@@ -39,8 +37,7 @@ export class ConditionPlugin extends TranspilerPlugin {
         return { type: "if", cond, then, elseif, else: elseClause, loc: dummyLoc };
     }
     convertIfStatement(node) {
-        validateBooleanExpression(node.expression, this.converter);
-        const cond = this.converter.convertExpressionAsExpression(node.expression);
+        const cond = coerceToBool(node.expression, this.converter.convertExpressionAsExpression(node.expression), this.converter);
         const then = this.convertStatementOrExpression(node.thenStatement);
         const elseif = [];
         let elseClause;
@@ -48,8 +45,7 @@ export class ConditionPlugin extends TranspilerPlugin {
         while (current) {
             if (ts.isIfStatement(current)) {
                 // else if
-                validateBooleanExpression(current.expression, this.converter);
-                const elifCond = this.converter.convertExpressionAsExpression(current.expression);
+                const elifCond = coerceToBool(current.expression, this.converter.convertExpressionAsExpression(current.expression), this.converter);
                 const elifThen = this.convertStatementOrExpression(current.thenStatement);
                 // biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
                 elseif.push({ cond: elifCond, then: elifThen });

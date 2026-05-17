@@ -4,7 +4,7 @@ import { TranspilerPlugin } from "../../base.js";
 import { dummyLoc } from "../../consts.js";
 import { convertDestructuringPattern } from "../../utils/destructuring.js";
 import {
-	validateBooleanLike,
+	coerceToBool,
 	validateNumberLike,
 } from "../../utils/typeValidation.js";
 
@@ -272,9 +272,19 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
 			case ts.SyntaxKind.GreaterThanEqualsToken:
 				return { type: "gteq", left, right, loc: dummyLoc };
 			case ts.SyntaxKind.AmpersandAmpersandToken:
-				return { type: "and", left, right, loc: dummyLoc };
+				return {
+					type: "and",
+					left: coerceToBool(node.left, left, this.converter),
+					right: coerceToBool(node.right, right, this.converter),
+					loc: dummyLoc,
+				};
 			case ts.SyntaxKind.BarBarToken:
-				return { type: "or", left, right, loc: dummyLoc };
+				return {
+					type: "or",
+					left: coerceToBool(node.left, left, this.converter),
+					right: coerceToBool(node.right, right, this.converter),
+					loc: dummyLoc,
+				};
 			case ts.SyntaxKind.InKeyword:
 				// key in obj → Obj:keys(obj).incl(key)
 				return {
@@ -330,18 +340,7 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
 				this.converter,
 				`算術演算子 '${node.operatorToken.getText()}' の右オペランドはNumber型である必要があります`,
 			);
-		} else if (logicalOperators.includes(node.operatorToken.kind)) {
-			// 論理演算の場合、両オペランドがBoolean型である必要がある
-			validateBooleanLike(
-				node.left,
-				this.converter,
-				`論理演算子 '${node.operatorToken.getText()}' の左オペランドはBoolean型である必要があります`,
-			);
-			validateBooleanLike(
-				node.right,
-				this.converter,
-				`論理演算子 '${node.operatorToken.getText()}' の右オペランドはBoolean型である必要があります`,
-			);
+			// 論理演算子は coerceToBool で変換時に処理するためここでは検証しない
 		}
 	}
 
@@ -374,18 +373,7 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
 				this.converter,
 				`算術代入演算子 '${node.operatorToken.getText()}' の右オペランドはNumber型である必要があります`,
 			);
-		} else if (logicalAssignmentOperators.includes(node.operatorToken.kind)) {
-			// 論理代入演算の場合、両オペランドがBoolean型である必要がある
-			validateBooleanLike(
-				node.left,
-				this.converter,
-				`論理代入演算子 '${node.operatorToken.getText()}' の左オペランドはBoolean型である必要があります`,
-			);
-			validateBooleanLike(
-				node.right,
-				this.converter,
-				`論理代入演算子 '${node.operatorToken.getText()}' の右オペランドはBoolean型である必要があります`,
-			);
+			// 論理代入演算子は coerceToBool で変換時に処理するためここでは検証しない
 		}
 	}
 }

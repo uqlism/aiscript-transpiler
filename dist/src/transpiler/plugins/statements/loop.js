@@ -2,7 +2,7 @@ import ts from "typescript";
 import { TranspilerPlugin } from "../../base.js";
 import { dummyLoc } from "../../consts.js";
 import { convertDestructuringAssignment } from "../../utils/destructuring.js";
-import { validateBooleanExpression } from "../../utils/typeValidation.js";
+import { coerceToBool } from "../../utils/typeValidation.js";
 export class LoopStatementsPlugin extends TranspilerPlugin {
     tryConvertStatementAsStatements = (node) => {
         switch (true) {
@@ -71,8 +71,7 @@ export class LoopStatementsPlugin extends TranspilerPlugin {
         const loopBody = [];
         // 条件チェック（条件がfalseならbreak）
         if (node.condition) {
-            validateBooleanExpression(node.condition, this.converter);
-            const condition = this.converter.convertExpressionAsExpression(node.condition);
+            const condition = coerceToBool(node.condition, this.converter.convertExpressionAsExpression(node.condition), this.converter);
             const ifStatement = {
                 type: "if",
                 cond: {
@@ -110,8 +109,7 @@ export class LoopStatementsPlugin extends TranspilerPlugin {
             : { type: "block", statements: evalBody, loc: dummyLoc };
     }
     convertWhileStatement(node) {
-        validateBooleanExpression(node.expression, this.converter);
-        const condition = this.converter.convertExpressionAsExpression(node.expression);
+        const condition = coerceToBool(node.expression, this.converter.convertExpressionAsExpression(node.expression), this.converter);
         const body = node.statement
             ? this.convertStatementToStatements(node.statement)
             : [];
@@ -141,8 +139,7 @@ export class LoopStatementsPlugin extends TranspilerPlugin {
         };
     }
     convertDoWhileStatement(node) {
-        validateBooleanExpression(node.expression, this.converter);
-        const condition = this.converter.convertExpressionAsExpression(node.expression);
+        const condition = coerceToBool(node.expression, this.converter.convertExpressionAsExpression(node.expression), this.converter);
         const body = this.convertStatementToStatements(node.statement);
         const loopBody = [];
         // 最初にbodyを実行

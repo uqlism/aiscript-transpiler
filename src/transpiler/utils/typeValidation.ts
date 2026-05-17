@@ -1,25 +1,78 @@
+import type { Ast } from "@syuilo/aiscript";
 import ts from "typescript";
 import type { TranspilerContext } from "../base.js";
+import { dummyLoc } from "../consts.js";
+
+/**
+ * TypeScript の truthy 変換ルールに従い、AiScript 式を boolean 式に変換する。
+ * - boolean 型 → そのまま返す
+ * - number 型 → `x != 0`
+ * - string 型 → `x != ""`
+ * - その他 / nullable → `x != null`
+ *
+ * doTypeCheck が false の場合は型情報なしのためそのまま返す。
+ */
+export function coerceToBool(
+	tsExpr: ts.Expression,
+	aisExpr: Ast.Expression,
+	context: TranspilerContext,
+): Ast.Expression {
+	if (!context.doTypeCheck) return aisExpr;
+
+	const { typeChecker } = context;
+	if (isBooleanLike(tsExpr, typeChecker)) return aisExpr;
+
+	const type = typeChecker.getTypeAtLocation(tsExpr);
+
+	// null/undefined を含まない純粋な number → != 0
+	if (isNumberLike(tsExpr, typeChecker) && !hasNullableComponent(type)) {
+		return {
+			type: "neq",
+			left: aisExpr,
+			right: { type: "num", value: 0, loc: dummyLoc },
+			loc: dummyLoc,
+		};
+	}
+
+	// null/undefined を含まない純粋な string → != ""
+	if (isStringLike(tsExpr, typeChecker) && !hasNullableComponent(type)) {
+		return {
+			type: "neq",
+			left: aisExpr,
+			right: { type: "str", value: "", loc: dummyLoc },
+			loc: dummyLoc,
+		};
+	}
+
+	// それ以外（nullable / object / unknown / any 等）→ != null
+	return {
+		type: "neq",
+		left: aisExpr,
+		right: { type: "null", loc: dummyLoc },
+		loc: dummyLoc,
+	};
+}
+
+/** 型が null または undefined を含むかどうか */
+function hasNullableComponent(type: ts.Type): boolean {
+	if (type.flags & (ts.TypeFlags.Null | ts.TypeFlags.Undefined)) return true;
+	if (type.isUnion()) {
+		return type.types.some(
+			(t) => !!(t.flags & (ts.TypeFlags.Null | ts.TypeFlags.Undefined)),
+		);
+	}
+	return false;
+}
 
 /**
  * boolean型の式かどうかを検証する
+ * @deprecated coerceToBool を使ってください
  */
 export function validateBooleanExpression(
-	expr: ts.Expression,
-	context: TranspilerContext,
+	_expr: ts.Expression,
+	_context: TranspilerContext,
 ): void {
-	if (!context.doTypeCheck) {
-		return;
-	}
-
-	if (!isBooleanLike(expr, context.typeChecker)) {
-		const type = context.typeChecker.getTypeAtLocation(expr);
-		const typeString = context.typeChecker.typeToString(type);
-		context.throwError(
-			`boolean型である必要があります。現在の型: ${typeString}`,
-			expr,
-		);
-	}
+	// coerceToBool に移行済み。エラーは吐かない。
 }
 
 /**
@@ -121,24 +174,14 @@ function isNumberLike(
 
 /**
  * boolean型の式かどうかを検証し、違反時にエラーを投げる
+ * @deprecated coerceToBool を使ってください
  */
 export function validateBooleanLike(
-	expr: ts.Expression,
-	context: TranspilerContext,
-	errorMessage?: string,
+	_expr: ts.Expression,
+	_context: TranspilerContext,
+	_errorMessage?: string,
 ): void {
-	if (!context.doTypeCheck) {
-		return;
-	}
-
-	if (!isBooleanLike(expr, context.typeChecker)) {
-		const type = context.typeChecker.getTypeAtLocation(expr);
-		const typeString = context.typeChecker.typeToString(type);
-		context.throwError(
-			errorMessage || `boolean型である必要があります。現在の型: ${typeString}`,
-			expr,
-		);
-	}
+	// coerceToBool に移行済み。エラーは吐かない。
 }
 
 /**

@@ -3,7 +3,7 @@ import ts from "typescript";
 import { TranspilerPlugin } from "../../base.js";
 import { dummyLoc } from "../../consts.js";
 import {
-	validateBooleanLike,
+	coerceToBool,
 	validateNumberLike,
 } from "../../utils/typeValidation.js";
 
@@ -47,10 +47,12 @@ export class UnaryExpressionPlugin extends TranspilerPlugin {
 				if (expr.type === "num")
 					return { type: "num", value: -expr.value, loc: dummyLoc };
 				return { type: "minus", expr, loc: dummyLoc };
-			case ts.SyntaxKind.ExclamationToken:
-				if (expr.type === "bool")
-					return { type: "bool", value: !expr.value, loc: dummyLoc };
-				return { type: "not", expr, loc: dummyLoc };
+			case ts.SyntaxKind.ExclamationToken: {
+				const boolExpr = coerceToBool(node.operand, expr, this.converter);
+				if (boolExpr.type === "bool")
+					return { type: "bool", value: !boolExpr.value, loc: dummyLoc };
+				return { type: "not", expr: boolExpr, loc: dummyLoc };
+			}
 			case ts.SyntaxKind.PlusPlusToken:
 				return {
 					type: "block",
@@ -225,12 +227,7 @@ export class UnaryExpressionPlugin extends TranspilerPlugin {
 				);
 				break;
 			case ts.SyntaxKind.ExclamationToken:
-				// ! 演算子はBoolean型が必要
-				validateBooleanLike(
-					node.operand,
-					this.converter,
-					`論理否定演算子 '!' のオペランドはBoolean型である必要があります`,
-				);
+				// ! 演算子は coerceToBool で変換時に処理するためここでは検証しない
 				break;
 			case ts.SyntaxKind.PlusPlusToken:
 			case ts.SyntaxKind.MinusMinusToken:

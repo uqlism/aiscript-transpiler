@@ -1,7 +1,7 @@
 import ts from "typescript";
 import { TranspilerPlugin } from "../../base.js";
 import { dummyLoc } from "../../consts.js";
-import { validateBooleanExpression } from "../../utils/typeValidation.js";
+import { coerceToBool } from "../../utils/typeValidation.js";
 function isSimple(expr) {
     return (expr.type === "identifier" ||
         expr.type === "num" ||
@@ -163,8 +163,7 @@ export class ExpressionsPlugin extends TranspilerPlugin {
         return this.converter.convertExpressionAsExpression(node.expression);
     }
     convertConditionalExpression(node) {
-        validateBooleanExpression(node.condition, this.converter);
-        const cond = this.converter.convertExpressionAsExpression(node.condition);
+        const cond = coerceToBool(node.condition, this.converter.convertExpressionAsExpression(node.condition), this.converter);
         const then = this.converter.convertExpressionAsExpression(node.whenTrue);
         const elseif = [];
         let elseClause;
@@ -172,8 +171,7 @@ export class ExpressionsPlugin extends TranspilerPlugin {
         while (current) {
             if (ts.isConditionalExpression(current)) {
                 // else if
-                validateBooleanExpression(current.condition, this.converter);
-                const elifCond = this.converter.convertExpressionAsExpression(current.condition);
+                const elifCond = coerceToBool(current.condition, this.converter.convertExpressionAsExpression(current.condition), this.converter);
                 const elifThen = this.converter.convertExpressionAsExpression(current.whenTrue);
                 // biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
                 elseif.push({ cond: elifCond, then: elifThen });

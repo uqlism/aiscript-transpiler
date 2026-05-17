@@ -3,7 +3,7 @@ import ts from "typescript";
 import { TranspilerPlugin } from "../../base.js";
 import { dummyLoc } from "../../consts.js";
 import { convertDestructuringAssignment } from "../../utils/destructuring.js";
-import { validateBooleanExpression } from "../../utils/typeValidation.js";
+import { coerceToBool } from "../../utils/typeValidation.js";
 
 export class LoopStatementsPlugin extends TranspilerPlugin {
 	override tryConvertStatementAsStatements = (
@@ -97,9 +97,10 @@ export class LoopStatementsPlugin extends TranspilerPlugin {
 
 		// 条件チェック（条件がfalseならbreak）
 		if (node.condition) {
-			validateBooleanExpression(node.condition, this.converter);
-			const condition = this.converter.convertExpressionAsExpression(
+			const condition = coerceToBool(
 				node.condition,
+				this.converter.convertExpressionAsExpression(node.condition),
+				this.converter,
 			);
 			const ifStatement: Ast.If = {
 				type: "if",
@@ -146,9 +147,10 @@ export class LoopStatementsPlugin extends TranspilerPlugin {
 	}
 
 	private convertWhileStatement(node: ts.WhileStatement): Ast.Loop {
-		validateBooleanExpression(node.expression, this.converter);
-		const condition = this.converter.convertExpressionAsExpression(
+		const condition = coerceToBool(
 			node.expression,
+			this.converter.convertExpressionAsExpression(node.expression),
+			this.converter,
 		);
 		const body = node.statement
 			? this.convertStatementToStatements(node.statement)
@@ -183,9 +185,10 @@ export class LoopStatementsPlugin extends TranspilerPlugin {
 	}
 
 	private convertDoWhileStatement(node: ts.DoStatement): Ast.Loop {
-		validateBooleanExpression(node.expression, this.converter);
-		const condition = this.converter.convertExpressionAsExpression(
+		const condition = coerceToBool(
 			node.expression,
+			this.converter.convertExpressionAsExpression(node.expression),
+			this.converter,
 		);
 		const body = this.convertStatementToStatements(node.statement);
 

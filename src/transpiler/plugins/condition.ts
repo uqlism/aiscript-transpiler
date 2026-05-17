@@ -2,7 +2,7 @@ import type { Ast } from "@syuilo/aiscript";
 import ts from "typescript";
 import { TranspilerPlugin } from "../base.js";
 import { dummyLoc } from "../consts.js";
-import { validateBooleanExpression } from "../utils/typeValidation.js";
+import { coerceToBool } from "../utils/typeValidation.js";
 
 export class ConditionPlugin extends TranspilerPlugin {
 	override tryConvertStatementAsStatements = (
@@ -22,8 +22,11 @@ export class ConditionPlugin extends TranspilerPlugin {
 	};
 
 	private convertConditionalExpression(node: ts.ConditionalExpression): Ast.If {
-		validateBooleanExpression(node.condition, this.converter);
-		const cond = this.converter.convertExpressionAsExpression(node.condition);
+		const cond = coerceToBool(
+			node.condition,
+			this.converter.convertExpressionAsExpression(node.condition),
+			this.converter,
+		);
 		const then = this.converter.convertExpressionAsExpression(node.whenTrue);
 
 		const elseif: Ast.If["elseif"] = [];
@@ -33,9 +36,10 @@ export class ConditionPlugin extends TranspilerPlugin {
 		while (current) {
 			if (ts.isConditionalExpression(current)) {
 				// else if
-				validateBooleanExpression(current.condition, this.converter);
-				const elifCond = this.converter.convertExpressionAsExpression(
+				const elifCond = coerceToBool(
 					current.condition,
+					this.converter.convertExpressionAsExpression(current.condition),
+					this.converter,
 				);
 				const elifThen = this.converter.convertExpressionAsExpression(
 					current.whenTrue,
@@ -54,8 +58,11 @@ export class ConditionPlugin extends TranspilerPlugin {
 	}
 
 	private convertIfStatement(node: ts.IfStatement): Ast.If {
-		validateBooleanExpression(node.expression, this.converter);
-		const cond = this.converter.convertExpressionAsExpression(node.expression);
+		const cond = coerceToBool(
+			node.expression,
+			this.converter.convertExpressionAsExpression(node.expression),
+			this.converter,
+		);
 		const then = this.convertStatementOrExpression(node.thenStatement);
 
 		const elseif: Ast.If["elseif"] = [];
@@ -65,9 +72,10 @@ export class ConditionPlugin extends TranspilerPlugin {
 		while (current) {
 			if (ts.isIfStatement(current)) {
 				// else if
-				validateBooleanExpression(current.expression, this.converter);
-				const elifCond = this.converter.convertExpressionAsExpression(
+				const elifCond = coerceToBool(
 					current.expression,
+					this.converter.convertExpressionAsExpression(current.expression),
+					this.converter,
 				);
 				const elifThen = this.convertStatementOrExpression(
 					current.thenStatement,
