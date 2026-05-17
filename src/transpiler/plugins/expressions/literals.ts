@@ -176,16 +176,17 @@ export class LiteralPlugin extends TranspilerPlugin {
 		flushCurrent();
 
 		// segments を Obj:merge でたたみ込む（左畳み込み）
-		// スプレッドがある場合は必ず1つ以上のセグメントが存在する
-		let merged: Ast.Expression = segments[0]!;
-		for (let i = 1; i < segments.length; i++) {
-			merged = {
+		let merged: Ast.Expression | undefined;
+		for (const seg of segments) {
+			merged = merged === undefined ? seg : {
 				type: "call",
 				target: { type: "identifier", name: "Obj:merge", loc: dummyLoc },
-				args: [merged, segments[i]!],
+				args: [merged, seg],
 				loc: dummyLoc,
 			};
 		}
+		// スプレッドがある場合は必ず1つ以上のセグメントが存在する（到達不能）
+		if (merged === undefined) throw new Error("internal: no segments in spread object");
 		return merged as Ast.Call;
 	}
 
