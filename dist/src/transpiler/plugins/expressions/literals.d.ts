@@ -8,6 +8,8 @@ export declare class LiteralPlugin extends TranspilerPlugin {
     private convertNoSubstitutionTemplateLiteral;
     private convertArrayLiteralExpression;
     private convertObjectLiteralExpression;
+    private buildPlainObj;
+    private buildObjWithSpread;
     private convertMethodToInlineFunction;
 }
 //# sourceMappingURL=literals.d.ts.map

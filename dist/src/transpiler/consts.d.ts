@@ -10,4 +10,5 @@ export declare const dummyLoc: {
     };
 };
 export declare const version = "1.2.0";
+export declare const defaultNamespaces: string[];
 //# sourceMappingURL=consts.d.ts.map

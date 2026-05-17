@@ -5,6 +5,7 @@ import * as path from "node:path";
 import { env } from "node:process";
 import { program } from "commander";
 import { AiScriptStringifier } from "../src/stringifier.js";
+import { TranspilerError } from "../src/transpiler/base.js";
 import { TypeScriptToAiScriptTranspiler } from "../src/transpiler/main.js";
 
 program
@@ -84,11 +85,7 @@ function transpile(
 		console.log(`📊 Output size: ${aiScript.length} characters`);
 	} catch (error) {
 		console.error("❌ Transpilation failed:");
-		if (error instanceof Error) {
-			console.error(error.message);
-		} else {
-			console.error(String(error));
-		}
+		printError(error);
 		process.exit(1);
 	}
 }
@@ -142,12 +139,38 @@ async function deploy(
 		}
 	} catch (error) {
 		console.error("❌ Transpilation failed:");
-		if (error instanceof Error) {
-			console.error(error, error.message);
-		} else {
-			console.error(error, String(error));
-		}
+		printError(error);
 		process.exit(1);
+	}
+}
+
+function formatTranspilerError(error: TranspilerError): string {
+	const pos = error.getPosition();
+	const file = error.sourceFile.fileName;
+	const lines = error.sourceFile.text.split("\n");
+	const lineIndex = pos.startLine - 1;
+
+	const digits = String(pos.startLine + 1).length;
+	const pad = (n: number) => String(n).padStart(digits);
+
+	const context: string[] = [];
+	if (lineIndex > 0) context.push(`  ${pad(pos.startLine - 1)} | ${lines[lineIndex - 1]}`);
+	context.push(`> ${pad(pos.startLine)} | ${lines[lineIndex]}`);
+	const indent = " ".repeat(pos.startColumn - 1);
+	const caret = "^".repeat(Math.max(1, pos.endColumn - pos.startColumn));
+	context.push(`  ${" ".repeat(digits)} | ${indent}${caret}`);
+	if (lineIndex + 1 < lines.length) context.push(`  ${pad(pos.startLine + 1)} | ${lines[lineIndex + 1]}`);
+
+	return `${file}:${pos.startLine}:${pos.startColumn}: ${error.message}\n${context.join("\n")}`;
+}
+
+function printError(error: unknown): void {
+	if (error instanceof TranspilerError) {
+		console.error(formatTranspilerError(error));
+	} else if (error instanceof Error) {
+		console.error(error.message);
+	} else {
+		console.error(String(error));
 	}
 }
 

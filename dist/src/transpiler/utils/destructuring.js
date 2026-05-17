@@ -196,7 +196,11 @@ export function convertDestructuringPattern(node) {
                     // {x: a} 形式
                     const sourceKey = prop.name.text;
                     if (ts.isIdentifier(prop.initializer)) {
-                        const destPattern = { type: "identifier", name: prop.initializer.text, loc: dummyLoc };
+                        const destPattern = {
+                            type: "identifier",
+                            name: prop.initializer.text,
+                            loc: dummyLoc,
+                        };
                         return [sourceKey, destPattern];
                     }
                     else {
@@ -207,7 +211,11 @@ export function convertDestructuringPattern(node) {
                 else if (ts.isShorthandPropertyAssignment(prop)) {
                     // {x} 形式（ショートハンド）
                     const key = prop.name.text;
-                    const destPattern = { type: "identifier", name: prop.name.text, loc: dummyLoc };
+                    const destPattern = {
+                        type: "identifier",
+                        name: prop.name.text,
+                        loc: dummyLoc,
+                    };
                     return [key, destPattern];
                 }
                 else {

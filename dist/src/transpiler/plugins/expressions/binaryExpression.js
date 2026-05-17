@@ -1,8 +1,8 @@
 import ts from "typescript";
 import { TranspilerPlugin } from "../../base.js";
 import { dummyLoc } from "../../consts.js";
-import { validateBooleanLike, validateNumberLike, } from "../../utils/typeValidation.js";
 import { convertDestructuringPattern } from "../../utils/destructuring.js";
+import { validateBooleanLike, validateNumberLike, } from "../../utils/typeValidation.js";
 export class BinaryExpressionPlugin extends TranspilerPlugin {
     tryConvertExpressionAsExpression = (node) => {
         if (ts.isBinaryExpression(node)) {
@@ -38,14 +38,16 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
         const rightExpr = this.converter.convertExpressionAsExpression(node.right);
         const leftPattern = convertDestructuringPattern(node.left);
         // AiScriptネイティブ分割代入として出力
-        return [{
+        return [
+            {
                 type: "def",
                 dest: leftPattern,
                 expr: rightExpr,
                 mut: false,
                 attr: [],
                 loc: dummyLoc,
-            }];
+            },
+        ];
     }
     convertBinaryAssignExpression(node) {
         const left = this.converter.convertExpressionAsExpression(node.left);

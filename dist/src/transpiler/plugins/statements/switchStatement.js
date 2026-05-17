@@ -40,7 +40,7 @@ export class SwitchStatementPlugin extends TranspilerPlugin {
         const matchStatement = {
             type: "match",
             about: switchExpr,
-            qs: cases.map(caseItem => ({
+            qs: cases.map((caseItem) => ({
                 q: caseItem.cond,
                 a: caseItem.body,
             })),

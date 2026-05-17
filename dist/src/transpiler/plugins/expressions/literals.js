@@ -83,40 +83,84 @@ export class LiteralPlugin extends TranspilerPlugin {
         };
     }
     convertObjectLiteralExpression(node) {
+        // スプレッドがあるか確認
+        const hasSpread = node.properties.some(ts.isSpreadAssignment);
+        if (!hasSpread) {
+            return this.buildPlainObj(node.properties);
+        }
+        return this.buildObjWithSpread(node.properties);
+    }
+    buildPlainObj(props) {
         const value = new Map();
-        node.properties.forEach((prop) => {
+        for (const prop of props) {
             if (ts.isPropertyAssignment(prop)) {
                 const key = prop.name?.getText() || "";
                 const val = this.converter.convertExpressionAsExpression(prop.initializer);
                 value.set(key, val);
             }
             else if (ts.isShorthandPropertyAssignment(prop)) {
-                // ショートハンドプロパティ: { foo } → { foo: foo }
                 const key = prop.name.getText();
-                const val = {
-                    type: "identifier",
-                    name: key,
-                    loc: dummyLoc,
-                };
-                value.set(key, val);
+                value.set(key, { type: "identifier", name: key, loc: dummyLoc });
             }
             else if (ts.isMethodDeclaration(prop)) {
-                // メソッド定義: { foo(x, y) { return x + y } }
-                // → { foo: @(x, y) { return x + y } }
                 const key = prop.name?.getText() || "";
-                // メソッドを関数式に直接変換
-                const methodFunction = this.convertMethodToInlineFunction(prop);
-                value.set(key, methodFunction);
+                value.set(key, this.convertMethodToInlineFunction(prop));
             }
             else {
                 this.converter.throwError(`サポートされていないオブジェクトプロパティです: ${ts.SyntaxKind[prop.kind]}`, prop);
             }
-        });
-        return {
-            type: "obj",
-            value,
-            loc: dummyLoc,
+        }
+        return { type: "obj", value, loc: dummyLoc };
+    }
+    buildObjWithSpread(props) {
+        // スプレッドで区切りながらセグメントのリストを作る
+        const segments = [];
+        let current = new Map();
+        const flushCurrent = () => {
+            if (current.size > 0) {
+                segments.push({ type: "obj", value: current, loc: dummyLoc });
+                current = new Map();
+            }
         };
+        for (const prop of props) {
+            if (ts.isSpreadAssignment(prop)) {
+                flushCurrent();
+                segments.push(this.converter.convertExpressionAsExpression(prop.expression));
+            }
+            else if (ts.isPropertyAssignment(prop)) {
+                const key = prop.name?.getText() || "";
+                current.set(key, this.converter.convertExpressionAsExpression(prop.initializer));
+            }
+            else if (ts.isShorthandPropertyAssignment(prop)) {
+                const key = prop.name.getText();
+                current.set(key, { type: "identifier", name: key, loc: dummyLoc });
+            }
+            else if (ts.isMethodDeclaration(prop)) {
+                const key = prop.name?.getText() || "";
+                current.set(key, this.convertMethodToInlineFunction(prop));
+            }
+            else {
+                this.converter.throwError(`サポートされていないオブジェクトプロパティです: ${ts.SyntaxKind[prop.kind]}`, prop);
+            }
+        }
+        flushCurrent();
+        // segments を Obj:merge でたたみ込む（左畳み込み）
+        let merged;
+        for (const seg of segments) {
+            merged =
+                merged === undefined
+                    ? seg
+                    : {
+                        type: "call",
+                        target: { type: "identifier", name: "Obj:merge", loc: dummyLoc },
+                        args: [merged, seg],
+                        loc: dummyLoc,
+                    };
+        }
+        // スプレッドがある場合は必ず1つ以上のセグメントが存在する（到達不能）
+        if (merged === undefined)
+            throw new Error("internal: no segments in spread object");
+        return merged;
     }
     convertMethodToInlineFunction(node) {
         const params = [];

@@ -1,8 +1,8 @@
 import ts from "typescript";
 import { TranspilerPlugin } from "../../base.js";
 import { dummyLoc } from "../../consts.js";
-import { validateArrayExpression } from "../../utils/typeValidation.js";
 import { convertBindingPattern } from "../../utils/destructuring.js";
+import { validateArrayExpression } from "../../utils/typeValidation.js";
 export class ForOfStatementPlugin extends TranspilerPlugin {
     tryConvertStatementAsStatements = (node) => {
         if (ts.isForOfStatement(node)) {
@@ -21,7 +21,7 @@ export class ForOfStatementPlugin extends TranspilerPlugin {
         if (declaration === undefined) {
             this.converter.throwError("for-of文では変数宣言が必要です", node);
         }
-        const isMutable = Boolean(node.initializer.flags & ts.NodeFlags.Let);
+        const _isMutable = Boolean(node.initializer.flags & ts.NodeFlags.Let);
         // TODO: ワンチャンconst必須かもなので調査
         // 分割代入もネイティブサポート
         const varPattern = convertBindingPattern(declaration.name);

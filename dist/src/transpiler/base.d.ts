@@ -16,7 +16,7 @@ export declare class TranspilerError extends Error {
 }
 export declare class Transpiler {
     #private;
-    constructor();
+    constructor(namespaces?: string[]);
     addPlugin(pluginFactory: new (converter: TranspilerContext) => TranspilerPlugin): void;
     /**
      * TypeScript Programを受け取ってAiScript ASTに変換する
@@ -33,6 +33,7 @@ export type TranspilerContext = {
     throwError(message: string, node: ts.Node): never;
     typeChecker: ts.TypeChecker;
     doTypeCheck: boolean;
+    getNamespaces(): string[];
     getModuleRef(importPath: string): Ast.Identifier;
     addExport(name: string): void;
 };

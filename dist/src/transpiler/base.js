@@ -25,8 +25,10 @@ export class TranspilerError extends Error {
 }
 export class Transpiler {
     #pluiginFactories;
-    constructor() {
+    #namespaces;
+    constructor(namespaces = []) {
         this.#pluiginFactories = [];
+        this.#namespaces = namespaces;
     }
     addPlugin(pluginFactory) {
         this.#pluiginFactories.push(pluginFactory);
@@ -36,8 +38,10 @@ export class Transpiler {
      * 核となる変換処理のみを行う
      */
     transpileProgram(program, entrySourceFile, doTypeCheck = true) {
-        const context = new TranspilerContextImpl(entrySourceFile, doTypeCheck, program);
-        this.#pluiginFactories.forEach(x => { context.addPlugin(x); });
+        const context = new TranspilerContextImpl(entrySourceFile, doTypeCheck, program, this.#namespaces);
+        this.#pluiginFactories.forEach((x) => {
+            context.addPlugin(x);
+        });
         // Get modules sorted by dependency order (includes circular dependency check)
         const sortedModules = context.getSortedModules();
         const result = [];
@@ -120,7 +124,8 @@ class TranspilerContextImpl {
     #program;
     #exportVars;
     #sortedModules;
-    constructor(entrySourceFile, doTypeCheck, program) {
+    #namespaces;
+    constructor(entrySourceFile, doTypeCheck, program, namespaces) {
         this.#entrySourceFile = entrySourceFile;
         this.#program = program;
         this.#plugins = [];
@@ -128,6 +133,7 @@ class TranspilerContextImpl {
         this.doTypeCheck = doTypeCheck;
         this.#uniqueIdCounter = 0;
         this.#exportVars = new Set();
+        this.#namespaces = namespaces;
         // Build sorted modules with dependency order and circular dependency check
         this.#sortedModules = this.buildSortedModules();
     }
@@ -165,7 +171,11 @@ class TranspilerContextImpl {
         this.#uniqueIdCounter++;
         const idStr = this.#uniqueIdCounter.toString(36).padStart(5, "0");
         const name = `__${idStr}`;
-        return { type: "identifier", name, loc: { start: { column: 0, line: 0 }, end: { column: 0, line: 0 } }, };
+        return {
+            type: "identifier",
+            name,
+            loc: { start: { column: 0, line: 0 }, end: { column: 0, line: 0 } },
+        };
     }
     validateVariableName(name, node) {
         if (reservedWords.includes(name)) {
@@ -185,18 +195,21 @@ class TranspilerContextImpl {
         const resolution = ts.resolveModuleName(importPath, this.#entrySourceFile.fileName, this.#program.getCompilerOptions(), ts.sys);
         if (resolution.resolvedModule?.resolvedFileName) {
             const resolvedPath = resolution.resolvedModule.resolvedFileName;
-            const module = this.#sortedModules.find(m => m.fileName === resolvedPath);
+            const module = this.#sortedModules.find((m) => m.fileName === resolvedPath);
             if (module?.id)
                 return module.id;
         }
         if ("failedLookupLocations" in resolution) {
             for (const lookupPath of resolution.failedLookupLocations) {
-                const module = this.#sortedModules.find(m => m.fileName === lookupPath);
+                const module = this.#sortedModules.find((m) => m.fileName === lookupPath);
                 if (module?.id)
                     return module.id;
             }
         }
         throw new Error(`Module not found for import path: ${importPath}`);
+    }
+    getNamespaces() {
+        return this.#namespaces;
     }
     addExport(name) {
         this.#exportVars.add(name);
@@ -220,18 +233,21 @@ class TranspilerContextImpl {
      */
     buildSortedModules() {
         const dependencyGraph = new Map();
-        const sourceFiles = this.#program.getSourceFiles().filter(sourceFile => {
-            if (sourceFile.fileName.includes("node_modules") || sourceFile.fileName.includes("lib.")) {
+        const sourceFiles = this.#program.getSourceFiles().filter((sourceFile) => {
+            if (sourceFile.fileName.includes("node_modules") ||
+                sourceFile.fileName.includes("lib.")) {
                 return false;
             }
             return true;
         });
-        const allFiles = new Set(sourceFiles.map(x => x.fileName));
+        const allFiles = new Set(sourceFiles.map((x) => x.fileName));
         // build dependency graph
         for (const sourceFile of sourceFiles) {
             const dependencies = new Set();
             ts.forEachChild(sourceFile, (node) => {
-                if (ts.isImportDeclaration(node) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
+                if (ts.isImportDeclaration(node) &&
+                    node.moduleSpecifier &&
+                    ts.isStringLiteral(node.moduleSpecifier)) {
                     const importPath = node.moduleSpecifier.text;
                     // Resolve the import path
                     const resolution = ts.resolveModuleName(importPath, sourceFile.fileName, this.#program.getCompilerOptions(), ts.sys);
@@ -263,7 +279,7 @@ class TranspilerContextImpl {
                 // Found circular dependency
                 const cycleStart = path.indexOf(fileName);
                 const cycle = path.slice(cycleStart).concat([fileName]);
-                throw new Error(`循環参照が検出されました: ${cycle.join(' -> ')}`);
+                throw new Error(`循環参照が検出されました: ${cycle.join(" -> ")}`);
             }
             if (visited.has(fileName)) {
                 return;
@@ -294,7 +310,9 @@ class TranspilerContextImpl {
                 throw new Error(`Source file not found: ${fileName}`);
             }
             // Generate unique ID for non-entry modules in sorted order
-            const moduleId = sourceFile !== this.#entrySourceFile ? this.getUniqueIdentifier() : undefined;
+            const moduleId = sourceFile !== this.#entrySourceFile
+                ? this.getUniqueIdentifier()
+                : undefined;
             result.push({ source: sourceFile, fileName, id: moduleId });
         }
         return result;
