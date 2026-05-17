@@ -39,7 +39,12 @@ export class ExportStatementPlugin extends TranspilerPlugin {
                     statements.push({
                         type: "def",
                         dest: { type: "identifier", name: localName, loc: dummyLoc },
-                        expr: { type: "prop", target: moduleRef, name: sourceName, loc: dummyLoc },
+                        expr: {
+                            type: "prop",
+                            target: moduleRef,
+                            name: sourceName,
+                            loc: dummyLoc,
+                        },
                         mut: false,
                         attr: [],
                         loc: dummyLoc,

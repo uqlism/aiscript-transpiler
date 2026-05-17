@@ -9,6 +9,11 @@ export declare class LiteralPlugin extends TranspilerPlugin {
     private convertArrayLiteralExpression;
     private buildArrWithSpread;
     private convertObjectLiteralExpression;
+    /**
+     * 算出キー { [expr]: val } を含むオブジェクトを eval ブロックで生成する。
+     * eval { var __obj = ({}); __obj[key] = val; ...; __obj }
+     */
+    private buildObjWithComputed;
     private buildPlainObj;
     private buildObjWithSpread;
     private convertMethodToInlineFunction;

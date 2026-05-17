@@ -126,12 +126,65 @@ export class LiteralPlugin extends TranspilerPlugin {
         return merged;
     }
     convertObjectLiteralExpression(node) {
-        // スプレッドがあるか確認
         const hasSpread = node.properties.some(ts.isSpreadAssignment);
-        if (!hasSpread) {
+        const hasComputed = node.properties.some((p) => ts.isPropertyAssignment(p) && ts.isComputedPropertyName(p.name));
+        if (!hasSpread && !hasComputed) {
             return this.buildPlainObj(node.properties);
         }
-        return this.buildObjWithSpread(node.properties);
+        if (hasSpread) {
+            return this.buildObjWithSpread(node.properties);
+        }
+        return this.buildObjWithComputed(node.properties);
+    }
+    /**
+     * 算出キー { [expr]: val } を含むオブジェクトを eval ブロックで生成する。
+     * eval { var __obj = ({}); __obj[key] = val; ...; __obj }
+     */
+    buildObjWithComputed(props) {
+        const tmp = this.converter.getUniqueIdentifier();
+        const staticValue = new Map();
+        const dynamicAssigns = [];
+        for (const prop of props) {
+            if (ts.isPropertyAssignment(prop)) {
+                if (ts.isComputedPropertyName(prop.name)) {
+                    // [expr]: val → tmp[expr] = val
+                    dynamicAssigns.push({
+                        type: "assign",
+                        dest: {
+                            type: "index",
+                            target: tmp,
+                            index: this.converter.convertExpressionAsExpression(prop.name.expression),
+                            loc: dummyLoc,
+                        },
+                        expr: this.converter.convertExpressionAsExpression(prop.initializer),
+                        loc: dummyLoc,
+                    });
+                }
+                else {
+                    staticValue.set(prop.name.getText() || "", this.converter.convertExpressionAsExpression(prop.initializer));
+                }
+            }
+            else if (ts.isShorthandPropertyAssignment(prop)) {
+                const key = prop.name.getText();
+                staticValue.set(key, { type: "identifier", name: key, loc: dummyLoc });
+            }
+            else if (ts.isMethodDeclaration(prop)) {
+                const key = prop.name.text || "";
+                staticValue.set(key, this.convertMethodToInlineFunction(prop));
+            }
+            else {
+                this.converter.throwError(`サポートされていないオブジェクトプロパティです: ${ts.SyntaxKind[prop.kind]}`, prop);
+            }
+        }
+        return {
+            type: "block",
+            statements: [
+                { type: "def", dest: tmp, expr: { type: "obj", value: staticValue, loc: dummyLoc }, mut: true, attr: [], loc: dummyLoc },
+                ...dynamicAssigns,
+                tmp,
+            ],
+            loc: dummyLoc,
+        };
     }
     buildPlainObj(props) {
         const value = new Map();
