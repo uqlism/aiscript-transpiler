@@ -79,21 +79,32 @@ export class Transpiler {
                 }
             });
             const exportVars = context.popExports();
-            // If there are exports, add an export object at the end
-            if (exportVars.size > 0) {
-                const exportObj = {
+            const reExportAlls = context.popReExportAlls();
+            // エクスポートオブジェクトを生成して末尾に追加
+            if (exportVars.size > 0 || reExportAlls.length > 0) {
+                const localExportObj = {
                     type: "obj",
                     value: new Map(),
                     loc: emptyLoc,
                 };
                 for (const exportName of exportVars) {
-                    exportObj.value.set(exportName, {
+                    localExportObj.value.set(exportName, {
                         type: "identifier",
                         name: exportName,
                         loc: emptyLoc,
                     });
                 }
-                moduleStatements.push(exportObj);
+                // export * from './other' がある場合は Obj:merge で連結
+                let exportExpr = localExportObj;
+                for (const sourceRef of reExportAlls) {
+                    exportExpr = {
+                        type: "call",
+                        target: { type: "identifier", name: "Obj:merge", loc: emptyLoc },
+                        args: [exportExpr, sourceRef],
+                        loc: emptyLoc,
+                    };
+                }
+                moduleStatements.push(exportExpr);
             }
             // __modules["relative/path"] = eval { ... }
             if (moduleStatements.length > 0) {
@@ -134,6 +145,7 @@ class TranspilerContextImpl {
     #uniqueIdCounter = 0;
     #program;
     #exportVars;
+    #reExportAlls;
     #sortedModules;
     #namespaces;
     constructor(entrySourceFile, doTypeCheck, program, namespaces) {
@@ -144,6 +156,7 @@ class TranspilerContextImpl {
         this.doTypeCheck = doTypeCheck;
         this.#uniqueIdCounter = 0;
         this.#exportVars = new Set();
+        this.#reExportAlls = [];
         this.#namespaces = namespaces;
         // Build sorted modules with dependency order and circular dependency check
         this.#sortedModules = this.buildSortedModules();
@@ -235,6 +248,14 @@ class TranspilerContextImpl {
     popExports() {
         const result = this.#exportVars;
         this.#exportVars = new Set();
+        return result;
+    }
+    addReExportAll(moduleRef) {
+        this.#reExportAlls.push(moduleRef);
+    }
+    popReExportAlls() {
+        const result = this.#reExportAlls;
+        this.#reExportAlls = [];
         return result;
     }
     /** エントリファイル以外のモジュールを返す */

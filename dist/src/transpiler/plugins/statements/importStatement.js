@@ -11,6 +11,9 @@ export class ImportStatementPlugin extends TranspilerPlugin {
         if (!ts.isStringLiteral(node.moduleSpecifier)) {
             this.converter.throwError("Import specifier must be a string literal", node.moduleSpecifier);
         }
+        // import type { Foo } from './module' → 型のみ、ランタイム不要
+        if (node.importClause?.isTypeOnly)
+            return [];
         const importPath = node.moduleSpecifier.text;
         const moduleRef = this.converter.getModuleRef(importPath);
         if (!node.importClause) {
@@ -21,6 +24,8 @@ export class ImportStatementPlugin extends TranspilerPlugin {
         if (node.importClause.namedBindings &&
             ts.isNamedImports(node.importClause.namedBindings)) {
             for (const element of node.importClause.namedBindings.elements) {
+                if (element.isTypeOnly)
+                    continue; // import { type Foo } → skip
                 const importedName = element.propertyName?.text || element.name.text;
                 const localName = element.name.text;
                 this.converter.validateVariableName(localName, element.name);

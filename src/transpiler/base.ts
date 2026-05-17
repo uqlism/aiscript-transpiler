@@ -112,21 +112,34 @@ export class Transpiler {
 				}
 			});
 			const exportVars = context.popExports();
-			// If there are exports, add an export object at the end
-			if (exportVars.size > 0) {
-				const exportObj: Ast.Obj = {
+			const reExportAlls = context.popReExportAlls();
+
+			// エクスポートオブジェクトを生成して末尾に追加
+			if (exportVars.size > 0 || reExportAlls.length > 0) {
+				const localExportObj: Ast.Obj = {
 					type: "obj",
 					value: new Map(),
 					loc: emptyLoc,
 				};
 				for (const exportName of exportVars) {
-					exportObj.value.set(exportName, {
+					localExportObj.value.set(exportName, {
 						type: "identifier",
 						name: exportName,
 						loc: emptyLoc,
 					});
 				}
-				moduleStatements.push(exportObj);
+
+				// export * from './other' がある場合は Obj:merge で連結
+				let exportExpr: Ast.Expression = localExportObj;
+				for (const sourceRef of reExportAlls) {
+					exportExpr = {
+						type: "call",
+						target: { type: "identifier", name: "Obj:merge", loc: emptyLoc },
+						args: [exportExpr, sourceRef],
+						loc: emptyLoc,
+					};
+				}
+				moduleStatements.push(exportExpr);
 			}
 
 			// __modules["relative/path"] = eval { ... }
@@ -183,6 +196,8 @@ export type TranspilerContext = {
 	// モジュール関連
 	getModuleRef(importPath: string): Ast.Expression;
 	addExport(name: string): void;
+	/** export * from './other' 用: 丸ごと再エクスポートするモジュール参照を登録 */
+	addReExportAll(moduleRef: Ast.Expression): void;
 };
 
 class TranspilerContextImpl implements TranspilerContext {
@@ -191,6 +206,7 @@ class TranspilerContextImpl implements TranspilerContext {
 	#uniqueIdCounter = 0;
 	#program: ts.Program;
 	#exportVars: Set<string>;
+	#reExportAlls: Ast.Expression[];
 	#sortedModules: {
 		source: ts.SourceFile;
 		fileName: string;
@@ -211,6 +227,7 @@ class TranspilerContextImpl implements TranspilerContext {
 		this.doTypeCheck = doTypeCheck;
 		this.#uniqueIdCounter = 0;
 		this.#exportVars = new Set<string>();
+		this.#reExportAlls = [];
 		this.#namespaces = namespaces;
 
 		// Build sorted modules with dependency order and circular dependency check
@@ -327,6 +344,14 @@ class TranspilerContextImpl implements TranspilerContext {
 	popExports(): Set<string> {
 		const result = this.#exportVars;
 		this.#exportVars = new Set<string>();
+		return result;
+	}
+	addReExportAll(moduleRef: Ast.Expression): void {
+		this.#reExportAlls.push(moduleRef);
+	}
+	popReExportAlls(): Ast.Expression[] {
+		const result = this.#reExportAlls;
+		this.#reExportAlls = [];
 		return result;
 	}
 	/** エントリファイル以外のモジュールを返す */

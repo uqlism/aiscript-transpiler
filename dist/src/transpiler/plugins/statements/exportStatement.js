@@ -11,14 +11,54 @@ export class ExportStatementPlugin extends TranspilerPlugin {
         }
     };
     convertExportDeclaration(node) {
+        // export type { Foo } / export type * from ... → 型のみ、ランタイム不要
+        if (node.isTypeOnly)
+            return [];
         if (node.moduleSpecifier) {
-            this.converter.throwError("Re-exports are not supported yet", node);
+            // Re-export 系
+            if (!ts.isStringLiteral(node.moduleSpecifier)) {
+                this.converter.throwError("モジュール指定子は文字列リテラルである必要があります", node.moduleSpecifier);
+            }
+            const importPath = node.moduleSpecifier.text;
+            if (!node.exportClause) {
+                // export * from './other'
+                const moduleRef = this.converter.getModuleRef(importPath);
+                this.converter.addReExportAll(moduleRef);
+                return [];
+            }
+            if (ts.isNamedExports(node.exportClause)) {
+                // export { foo, bar as baz } from './other'
+                const moduleRef = this.converter.getModuleRef(importPath);
+                const statements = [];
+                for (const element of node.exportClause.elements) {
+                    if (element.isTypeOnly)
+                        continue; // export { type Foo } → skip
+                    const sourceName = element.propertyName?.text || element.name.text;
+                    const localName = element.name.text;
+                    // let localName = __modules["other"].sourceName
+                    statements.push({
+                        type: "def",
+                        dest: { type: "identifier", name: localName, loc: dummyLoc },
+                        expr: { type: "prop", target: moduleRef, name: sourceName, loc: dummyLoc },
+                        mut: false,
+                        attr: [],
+                        loc: dummyLoc,
+                    });
+                    this.converter.addExport(localName);
+                }
+                return statements;
+            }
+            return [];
         }
         if (!node.exportClause) {
-            this.converter.throwError("Export all (*) is not supported", node);
+            // export * (ソースなし) → 意味がないのでスキップ
+            return [];
         }
         if (ts.isNamedExports(node.exportClause)) {
+            // export { foo, bar }
             for (const element of node.exportClause.elements) {
+                if (element.isTypeOnly)
+                    continue;
                 const exportedName = element.propertyName?.text || element.name.text;
                 this.converter.addExport(exportedName);
             }

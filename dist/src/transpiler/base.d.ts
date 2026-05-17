@@ -36,6 +36,8 @@ export type TranspilerContext = {
     getNamespaces(): string[];
     getModuleRef(importPath: string): Ast.Expression;
     addExport(name: string): void;
+    /** export * from './other' 用: 丸ごと再エクスポートするモジュール参照を登録 */
+    addReExportAll(moduleRef: Ast.Expression): void;
 };
 export declare class TranspilerPlugin {
     protected converter: TranspilerContext;
