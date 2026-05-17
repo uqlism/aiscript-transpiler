@@ -406,6 +406,74 @@ const testcases: TestCase[] = [
 		}`,
 	},
 	{
+		title: "クラスフィールド初期化子",
+		ts: `class MyClass {
+			x = 10;
+			y = 20;
+			method() {
+				return this.x + this.y;
+			}
+		}`,
+		ais: `let MyClass = {
+			__new: @() {
+				let __this = {};
+				__this.x = 10;
+				__this.y = 20;
+				__this.method = @() {
+					return __this.x + __this.y;
+				};
+				return __this;
+			}
+		}`,
+	},
+	{
+		title: "クラス静的フィールド",
+		ts: `class Counter {
+			static count = 0;
+			static increment() {
+				Counter.count += 1;
+			}
+		}`,
+		ais: `let Counter = {
+			__new: @() {
+				let __this = {};
+				return __this;
+			},
+			increment: @() {
+				Counter.count += 1;
+			},
+			count: 0
+		}`,
+	},
+	{
+		title: "継承クラスでフィールド初期化子はsuper()の後に実行",
+		ts: `class Base {
+			constructor(x: number) {
+				this.x = x;
+			}
+		}
+		class Child extends Base {
+			y = 99;
+			constructor(x: number) {
+				super(x);
+			}
+		}`,
+		ais: `let Base = {
+			__new: @(x) {
+				let __this = {};
+				__this.x = x;
+				return __this;
+			}
+		}
+		let Child = {
+			__new: @(x) {
+				let __this = Base.__new(x);
+				__this.y = 99;
+				return __this;
+			}
+		}`,
+	},
+	{
 		title: "Core:v",
 		ts: `Core.v;`,
 		ais: `Core:v;`,
