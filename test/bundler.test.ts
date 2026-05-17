@@ -40,15 +40,16 @@ const testCases = [
       `,
 		},
 		expected: `
-    let __00001 = eval {
+    var __modules = ({})
+    __modules["utils"] = eval {
         let PI = 3.14159
         @multiply(a, b) {
           return (a * b)
         }
-		({PI: PI, multiply: multiply})
+        ({PI: PI, multiply: multiply})
     }
-    let PI = __00001.PI
-    let multiply = __00001.multiply
+    let PI = __modules["utils"].PI
+    let multiply = __modules["utils"].multiply
     let radius = 5
     let area = multiply(PI, (radius * radius))
     print(area)
@@ -77,24 +78,25 @@ const testCases = [
         }
       `,
 		},
-		expected: `let __00001 = eval {
+		expected: `var __modules = ({})
+    __modules["moduleA"] = eval {
       let count = 1
       @increment() {
         return (count + 1)
       }
       ({count: count, increment: increment})
     }
-    let __00002 = eval {
+    __modules["moduleB"] = eval {
       let count = 100
       @decrement() {
         return (count - 1)
       }
       ({count: count, decrement: decrement})
     }
-    let countA = __00001.count
-    let increment = __00001.increment
-    let countB = __00002.count
-    let decrement = __00002.decrement
+    let countA = __modules["moduleA"].count
+    let increment = __modules["moduleA"].increment
+    let countB = __modules["moduleB"].count
+    let decrement = __modules["moduleB"].decrement
     let result = (increment() + decrement())
     print(countA, countB, result)`,
 	},
@@ -119,20 +121,21 @@ const testCases = [
       `,
 		},
 		expected: `
-let __00001 = eval {
+var __modules = ({})
+__modules["base"] = eval {
   let BASE_VALUE = 10
   ({BASE_VALUE: BASE_VALUE})
 }
-let __00002 = eval {
-  let BASE_VALUE = __00001.BASE_VALUE
+__modules["middle"] = eval {
+  let BASE_VALUE = __modules["base"].BASE_VALUE
   let MIDDLE_VALUE = (BASE_VALUE * 2)
   @getBase() {
     return BASE_VALUE
   }
   ({MIDDLE_VALUE: MIDDLE_VALUE, getBase: getBase})
 }
-let MIDDLE_VALUE = __00002.MIDDLE_VALUE
-let getBase = __00002.getBase
+let MIDDLE_VALUE = __modules["middle"].MIDDLE_VALUE
+let getBase = __modules["middle"].getBase
 let result = (MIDDLE_VALUE + getBase())
 console.log(result)
     `,
@@ -170,7 +173,8 @@ console.log(result)
       `,
 		},
 		expected: `
-let __00001 = eval {
+var __modules = ({})
+__modules["math"] = eval {
   @add(a, b) {
     return (a + b)
   }
@@ -179,8 +183,8 @@ let __00001 = eval {
   }
   ({add: add, subtract: subtract})
 }
-let add = __00001.add
-let subtract = __00001.subtract
+let add = __modules["math"].add
+let subtract = __modules["math"].subtract
 let x = 10
 let y = 5
 let sum = add(x, y)

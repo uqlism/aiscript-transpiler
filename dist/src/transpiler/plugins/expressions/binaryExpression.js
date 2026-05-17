@@ -235,9 +235,19 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
             case ts.SyntaxKind.GreaterThanEqualsToken:
                 return { type: "gteq", left, right, loc: dummyLoc };
             case ts.SyntaxKind.AmpersandAmpersandToken:
-                return { type: "and", left: coerceToBool(node.left, left, this.converter), right: coerceToBool(node.right, right, this.converter), loc: dummyLoc };
+                return {
+                    type: "and",
+                    left: coerceToBool(node.left, left, this.converter),
+                    right: coerceToBool(node.right, right, this.converter),
+                    loc: dummyLoc,
+                };
             case ts.SyntaxKind.BarBarToken:
-                return { type: "or", left: coerceToBool(node.left, left, this.converter), right: coerceToBool(node.right, right, this.converter), loc: dummyLoc };
+                return {
+                    type: "or",
+                    left: coerceToBool(node.left, left, this.converter),
+                    right: coerceToBool(node.right, right, this.converter),
+                    loc: dummyLoc,
+                };
             case ts.SyntaxKind.InKeyword:
                 // key in obj → Obj:keys(obj).incl(key)
                 return {

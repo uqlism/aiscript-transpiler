@@ -1,5 +1,9 @@
+import * as path from "node:path";
 import * as ts from "typescript";
 import { reservedWords } from "./consts.js";
+/** モジュールオブジェクトの変数名 */
+const MODULES_VAR = "__modules";
+const emptyLoc = { start: { column: 0, line: 0 }, end: { column: 0, line: 0 } };
 /**
  * TypeScript位置情報付きトランスパイラーエラー
  */
@@ -44,12 +48,23 @@ export class Transpiler {
         });
         // Get modules sorted by dependency order (includes circular dependency check)
         const sortedModules = context.getSortedModules();
+        const nonEntryModules = sortedModules.filter((m) => m.modulePath !== undefined);
         const result = [];
+        // モジュールが存在する場合は __modules オブジェクトを宣言する
+        if (nonEntryModules.length > 0) {
+            result.push({
+                type: "def",
+                dest: { type: "identifier", name: MODULES_VAR, loc: emptyLoc },
+                expr: { type: "obj", value: new Map(), loc: emptyLoc },
+                mut: true, // var (mutable) — 後でインデックス代入するため
+                attr: [],
+                loc: emptyLoc,
+            });
+        }
         // Process modules in dependency order (dependencies first)
-        for (const { source, id } of sortedModules) {
-            if (source === entrySourceFile || !id) {
-                continue; // Skip entry file and modules without ID
-            }
+        for (const { source, modulePath } of sortedModules) {
+            if (!modulePath)
+                continue; // エントリファイルはスキップ
             // Create eval block for this module
             const moduleStatements = [];
             ts.forEachChild(source, (node) => {
@@ -69,34 +84,30 @@ export class Transpiler {
                 const exportObj = {
                     type: "obj",
                     value: new Map(),
-                    loc: { start: { column: 0, line: 0 }, end: { column: 0, line: 0 } },
+                    loc: emptyLoc,
                 };
                 for (const exportName of exportVars) {
                     exportObj.value.set(exportName, {
                         type: "identifier",
                         name: exportName,
-                        loc: { start: { column: 0, line: 0 }, end: { column: 0, line: 0 } },
+                        loc: emptyLoc,
                     });
                 }
                 moduleStatements.push(exportObj);
             }
-            // Add the module as an eval block
+            // __modules["relative/path"] = eval { ... }
             if (moduleStatements.length > 0) {
-                const moduleBlock = {
-                    type: "block",
-                    statements: moduleStatements,
-                    loc: { start: { column: 0, line: 0 }, end: { column: 0, line: 0 } },
-                };
-                // Assign the module result to the module identifier
-                const moduleAssignment = {
-                    type: "def",
-                    dest: id,
-                    expr: moduleBlock,
-                    mut: false,
-                    attr: [],
-                    loc: { start: { column: 0, line: 0 }, end: { column: 0, line: 0 } },
-                };
-                result.push(moduleAssignment);
+                result.push({
+                    type: "assign",
+                    dest: {
+                        type: "index",
+                        target: { type: "identifier", name: MODULES_VAR, loc: emptyLoc },
+                        index: { type: "str", value: modulePath, loc: emptyLoc },
+                        loc: emptyLoc,
+                    },
+                    expr: { type: "block", statements: moduleStatements, loc: emptyLoc },
+                    loc: emptyLoc,
+                });
             }
         }
         // Process the entry file
@@ -193,20 +204,27 @@ class TranspilerContextImpl {
     getModuleRef(importPath) {
         // TypeScriptのコンパイラAPIを使用してモジュール解決
         const resolution = ts.resolveModuleName(importPath, this.#entrySourceFile.fileName, this.#program.getCompilerOptions(), ts.sys);
-        if (resolution.resolvedModule?.resolvedFileName) {
-            const resolvedPath = resolution.resolvedModule.resolvedFileName;
-            const module = this.#sortedModules.find((m) => m.fileName === resolvedPath);
-            if (module?.id)
-                return module.id;
-        }
-        if ("failedLookupLocations" in resolution) {
-            for (const lookupPath of resolution.failedLookupLocations) {
-                const module = this.#sortedModules.find((m) => m.fileName === lookupPath);
-                if (module?.id)
-                    return module.id;
+        const findModule = (fileName) => this.#sortedModules.find((m) => m.fileName === fileName);
+        let mod = resolution.resolvedModule?.resolvedFileName
+            ? findModule(resolution.resolvedModule.resolvedFileName)
+            : undefined;
+        if (!mod && "failedLookupLocations" in resolution) {
+            for (const loc of resolution.failedLookupLocations) {
+                mod = findModule(loc);
+                if (mod)
+                    break;
             }
         }
-        throw new Error(`Module not found for import path: ${importPath}`);
+        if (!mod?.modulePath) {
+            throw new Error(`Module not found for import path: ${importPath}`);
+        }
+        // __modules["relative/path"] というインデックスアクセス式を返す
+        return {
+            type: "index",
+            target: { type: "identifier", name: MODULES_VAR, loc: emptyLoc },
+            index: { type: "str", value: mod.modulePath, loc: emptyLoc },
+            loc: emptyLoc,
+        };
     }
     getNamespaces() {
         return this.#namespaces;
@@ -219,11 +237,11 @@ class TranspilerContextImpl {
         this.#exportVars = new Set();
         return result;
     }
-    /** エントリファイル以外のファイルをidとともに返す */
+    /** エントリファイル以外のモジュールを返す */
     *getImportedModules() {
         for (const module of this.#sortedModules) {
-            if (module.source !== this.#entrySourceFile && module.id) {
-                yield { source: module.source, id: module.id };
+            if (module.modulePath !== undefined) {
+                yield { source: module.source, modulePath: module.modulePath };
             }
         }
     }
@@ -235,7 +253,9 @@ class TranspilerContextImpl {
         const dependencyGraph = new Map();
         const sourceFiles = this.#program.getSourceFiles().filter((sourceFile) => {
             if (sourceFile.fileName.includes("node_modules") ||
-                sourceFile.fileName.includes("lib.")) {
+                sourceFile.fileName.includes("lib.") ||
+                sourceFile.isDeclarationFile // .d.ts は型定義のみで実行コードなし
+            ) {
                 return false;
             }
             return true;
@@ -302,18 +322,19 @@ class TranspilerContextImpl {
                 dfs(fileName);
             }
         }
-        // Convert to result format and generate IDs in sorted order
+        // エントリファイルのディレクトリ（モジュールの相対パス計算に使用）
+        const entryDir = path.dirname(this.#entrySourceFile.fileName);
         const result = [];
         for (const fileName of sortedFiles) {
             const sourceFile = this.#program.getSourceFile(fileName);
             if (!sourceFile) {
                 throw new Error(`Source file not found: ${fileName}`);
             }
-            // Generate unique ID for non-entry modules in sorted order
-            const moduleId = sourceFile !== this.#entrySourceFile
-                ? this.getUniqueIdentifier()
+            // エントリ以外のモジュールは相対パス（拡張子なし）をキーとして使う
+            const modulePath = sourceFile !== this.#entrySourceFile
+                ? path.relative(entryDir, fileName).replace(/\.tsx?$/, "")
                 : undefined;
-            result.push({ source: sourceFile, fileName, id: moduleId });
+            result.push({ source: sourceFile, fileName, modulePath });
         }
         return result;
     }

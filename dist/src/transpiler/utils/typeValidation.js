@@ -18,21 +18,36 @@ export function coerceToBool(tsExpr, aisExpr, context) {
     const type = typeChecker.getTypeAtLocation(tsExpr);
     // null/undefined を含まない純粋な number → != 0
     if (isNumberLike(tsExpr, typeChecker) && !hasNullableComponent(type)) {
-        return { type: "neq", left: aisExpr, right: { type: "num", value: 0, loc: dummyLoc }, loc: dummyLoc };
+        return {
+            type: "neq",
+            left: aisExpr,
+            right: { type: "num", value: 0, loc: dummyLoc },
+            loc: dummyLoc,
+        };
     }
     // null/undefined を含まない純粋な string → != ""
     if (isStringLike(tsExpr, typeChecker) && !hasNullableComponent(type)) {
-        return { type: "neq", left: aisExpr, right: { type: "str", value: "", loc: dummyLoc }, loc: dummyLoc };
+        return {
+            type: "neq",
+            left: aisExpr,
+            right: { type: "str", value: "", loc: dummyLoc },
+            loc: dummyLoc,
+        };
     }
     // それ以外（nullable / object / unknown / any 等）→ != null
-    return { type: "neq", left: aisExpr, right: { type: "null", loc: dummyLoc }, loc: dummyLoc };
+    return {
+        type: "neq",
+        left: aisExpr,
+        right: { type: "null", loc: dummyLoc },
+        loc: dummyLoc,
+    };
 }
 /** 型が null または undefined を含むかどうか */
 function hasNullableComponent(type) {
     if (type.flags & (ts.TypeFlags.Null | ts.TypeFlags.Undefined))
         return true;
     if (type.isUnion()) {
-        return type.types.some(t => !!(t.flags & (ts.TypeFlags.Null | ts.TypeFlags.Undefined)));
+        return type.types.some((t) => !!(t.flags & (ts.TypeFlags.Null | ts.TypeFlags.Undefined)));
     }
     return false;
 }

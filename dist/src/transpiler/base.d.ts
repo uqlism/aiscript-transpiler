@@ -34,7 +34,7 @@ export type TranspilerContext = {
     typeChecker: ts.TypeChecker;
     doTypeCheck: boolean;
     getNamespaces(): string[];
-    getModuleRef(importPath: string): Ast.Identifier;
+    getModuleRef(importPath: string): Ast.Expression;
     addExport(name: string): void;
 };
 export declare class TranspilerPlugin {
