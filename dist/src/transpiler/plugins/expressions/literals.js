@@ -106,12 +106,20 @@ export class LiteralPlugin extends TranspilerPlugin {
         // segments を arr.concat() で左畳み込み
         let merged;
         for (const seg of segments) {
-            merged = merged === undefined ? seg : {
-                type: "call",
-                target: { type: "prop", target: merged, name: "concat", loc: dummyLoc },
-                args: [seg],
-                loc: dummyLoc,
-            };
+            merged =
+                merged === undefined
+                    ? seg
+                    : {
+                        type: "call",
+                        target: {
+                            type: "prop",
+                            target: merged,
+                            name: "concat",
+                            loc: dummyLoc,
+                        },
+                        args: [seg],
+                        loc: dummyLoc,
+                    };
         }
         if (merged === undefined)
             throw new Error("internal: no segments in spread array");

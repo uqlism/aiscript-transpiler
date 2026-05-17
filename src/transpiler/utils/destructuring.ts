@@ -165,14 +165,35 @@ export function convertDestructuringAssignment(
 				return;
 			}
 
-			let elemExpr: Ast.Expression = {
+			const indexExpr: Ast.Index = {
 				type: "index",
 				target: sourceExpr,
 				index: { type: "num", value: index, loc: dummyLoc },
 				loc: dummyLoc,
 			};
-			if (element.initializer)
-				elemExpr = withDefault(elemExpr, element.initializer);
+			// AiScript は配列の範囲外アクセスで throw するため、
+			// デフォルト値がある場合は長さチェックで分岐する
+			const elemExpr: Ast.Expression = element.initializer
+				? {
+						type: "if",
+						cond: {
+							type: "gt",
+							left: {
+								type: "prop",
+								target: sourceExpr,
+								name: "len",
+								loc: dummyLoc,
+							},
+							right: { type: "num", value: index, loc: dummyLoc },
+							loc: dummyLoc,
+						},
+						// biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
+						then: indexExpr,
+						elseif: [],
+						else: helper.convertExpressionAsExpression(element.initializer),
+						loc: dummyLoc,
+					}
+				: indexExpr;
 
 			if (ts.isIdentifier(element.name)) {
 				const targetName = element.name.text;

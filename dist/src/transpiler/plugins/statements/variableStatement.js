@@ -1,7 +1,20 @@
 import ts from "typescript";
 import { TranspilerPlugin } from "../../base.js";
 import { dummyLoc } from "../../consts.js";
-import { convertBindingPattern } from "../../utils/destructuring.js";
+import { convertBindingPattern, convertDestructuringAssignment } from "../../utils/destructuring.js";
+// デフォルト値・rest 要素があるパターンは AiScript ネイティブ展開では扱えない
+function needsExpansion(pattern) {
+    for (const element of pattern.elements) {
+        if (!ts.isBindingElement(element))
+            continue;
+        if (element.dotDotDotToken || element.initializer)
+            return true;
+        if ((ts.isArrayBindingPattern(element.name) || ts.isObjectBindingPattern(element.name)) &&
+            needsExpansion(element.name))
+            return true;
+    }
+    return false;
+}
 export class VariableStatementPlugin extends TranspilerPlugin {
     tryConvertStatementAsStatements = (node) => {
         if (ts.isVariableStatement(node)) {
@@ -38,9 +51,14 @@ export class VariableStatementPlugin extends TranspilerPlugin {
                     loc: dummyLoc,
                 });
             }
+            else if (needsExpansion(nameNode)) {
+                // デフォルト値・rest 要素を含む分割代入 → 展開形式
+                const tmp = this.converter.getUniqueIdentifier();
+                definitions.push({ type: "def", dest: tmp, expr, mut: false, attr: [], loc: dummyLoc });
+                definitions.push(...convertDestructuringAssignment(nameNode, tmp, isMutable, this.converter));
+            }
             else {
-                // 分割代入: let [a, b] = array; let {x, y} = object;
-                // AiScriptがネイティブ分割代入をサポートするため、直接def文として出力
+                // 単純な分割代入: AiScript ネイティブ分割代入を利用
                 definitions.push({
                     type: "def",
                     dest: convertBindingPattern(nameNode),

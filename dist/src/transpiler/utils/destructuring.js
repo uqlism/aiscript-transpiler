@@ -23,10 +23,23 @@ export function convertDestructuringAssignment(nameNode, sourceExpr, isMutable, 
         return {
             type: "block",
             statements: [
-                { type: "def", dest: tmp, expr: src, mut: false, attr: [], loc: dummyLoc },
+                {
+                    type: "def",
+                    dest: tmp,
+                    expr: src,
+                    mut: false,
+                    attr: [],
+                    loc: dummyLoc,
+                },
                 {
                     type: "if",
-                    cond: { type: "neq", left: tmp, right: { type: "null", loc: dummyLoc }, loc: dummyLoc },
+                    cond: {
+                        type: "neq",
+                        left: tmp,
+                        right: { type: "null", loc: dummyLoc },
+                        loc: dummyLoc,
+                    },
+                    // biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
                     then: tmp,
                     elseif: [],
                     else: defaultVal,
@@ -44,7 +57,12 @@ export function convertDestructuringAssignment(nameNode, sourceExpr, isMutable, 
             if (element.propertyName && ts.isIdentifier(element.propertyName)) {
                 // {x: a} 形式
                 const sourceKey = element.propertyName.text;
-                let propExpr = { type: "prop", target: sourceExpr, name: sourceKey, loc: dummyLoc };
+                let propExpr = {
+                    type: "prop",
+                    target: sourceExpr,
+                    name: sourceKey,
+                    loc: dummyLoc,
+                };
                 if (element.initializer)
                     propExpr = withDefault(propExpr, element.initializer);
                 if (ts.isIdentifier(element.name)) {
@@ -66,7 +84,12 @@ export function convertDestructuringAssignment(nameNode, sourceExpr, isMutable, 
                 const sourceKey = element.name.text;
                 const targetName = element.name.text;
                 helper.validateVariableName(targetName, element.name);
-                let propExpr = { type: "prop", target: sourceExpr, name: sourceKey, loc: dummyLoc };
+                let propExpr = {
+                    type: "prop",
+                    target: sourceExpr,
+                    name: sourceKey,
+                    loc: dummyLoc,
+                };
                 if (element.initializer)
                     propExpr = withDefault(propExpr, element.initializer);
                 pushStmt(targetName, propExpr);
@@ -82,12 +105,6 @@ export function convertDestructuringAssignment(nameNode, sourceExpr, isMutable, 
     }
     else if (ts.isArrayBindingPattern(nameNode)) {
         // 配列分割代入: [a, b] = array;
-        let nonRestCount = 0;
-        for (const element of nameNode.elements) {
-            if (ts.isBindingElement(element) && element.dotDotDotToken)
-                break;
-            nonRestCount++;
-        }
         nameNode.elements.forEach((element, index) => {
             if (!ts.isBindingElement(element))
                 return;
@@ -98,7 +115,12 @@ export function convertDestructuringAssignment(nameNode, sourceExpr, isMutable, 
                     helper.validateVariableName(targetName, element.name);
                     pushStmt(targetName, {
                         type: "call",
-                        target: { type: "prop", target: sourceExpr, name: "slice", loc: dummyLoc },
+                        target: {
+                            type: "prop",
+                            target: sourceExpr,
+                            name: "slice",
+                            loc: dummyLoc,
+                        },
                         args: [
                             { type: "num", value: index, loc: dummyLoc },
                             { type: "prop", target: sourceExpr, name: "len", loc: dummyLoc },
@@ -111,14 +133,25 @@ export function convertDestructuringAssignment(nameNode, sourceExpr, isMutable, 
                 }
                 return;
             }
-            let elemExpr = {
+            const indexExpr = {
                 type: "index",
                 target: sourceExpr,
                 index: { type: "num", value: index, loc: dummyLoc },
                 loc: dummyLoc,
             };
-            if (element.initializer)
-                elemExpr = withDefault(elemExpr, element.initializer);
+            // AiScript は配列の範囲外アクセスで throw するため、
+            // デフォルト値がある場合は長さチェックで分岐する
+            let elemExpr = element.initializer
+                ? {
+                    type: "if",
+                    cond: { type: "gt", left: { type: "prop", target: sourceExpr, name: "len", loc: dummyLoc }, right: { type: "num", value: index, loc: dummyLoc }, loc: dummyLoc },
+                    // biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
+                    then: indexExpr,
+                    elseif: [],
+                    else: helper.convertExpressionAsExpression(element.initializer),
+                    loc: dummyLoc,
+                }
+                : indexExpr;
             if (ts.isIdentifier(element.name)) {
                 const targetName = element.name.text;
                 helper.validateVariableName(targetName, element.name);
