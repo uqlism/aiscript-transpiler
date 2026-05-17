@@ -13,6 +13,12 @@ export declare class AiScriptStringifier {
     private getIndent;
     private stringifyNode;
     private stringifyExpression;
+    /**
+     * 演算子の子として式を文字列化する。
+     * - isRight=false (左辺) : 自分の優先度 < 親の優先度 → ()
+     * - isRight=true  (右辺) : 自分の優先度 ≤ 親の優先度 → () (左結合の意味論を保つため)
+     */
+    private childExpr;
     private stringifyStatement;
     private stringifyDefinition;
     private stringifyFn;

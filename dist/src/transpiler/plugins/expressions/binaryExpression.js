@@ -4,7 +4,11 @@ import { dummyLoc } from "../../consts.js";
 import { convertDestructuringPattern } from "../../utils/destructuring.js";
 import { validateBooleanLike, validateNumberLike, } from "../../utils/typeValidation.js";
 function isSimple(expr) {
-    return expr.type === "identifier" || expr.type === "num" || expr.type === "str" || expr.type === "bool" || expr.type === "null";
+    return (expr.type === "identifier" ||
+        expr.type === "num" ||
+        expr.type === "str" ||
+        expr.type === "bool" ||
+        expr.type === "null");
 }
 export class BinaryExpressionPlugin extends TranspilerPlugin {
     tryConvertExpressionAsExpression = (node) => {
@@ -144,7 +148,12 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
         const src = isSimple(left) ? left : this.converter.getUniqueIdentifier();
         const ifExpr = {
             type: "if",
-            cond: { type: "neq", left: src, right: { type: "null", loc: dummyLoc }, loc: dummyLoc },
+            cond: {
+                type: "neq",
+                left: src,
+                right: { type: "null", loc: dummyLoc },
+                loc: dummyLoc,
+            },
             // biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
             then: src,
             elseif: [],
@@ -156,7 +165,14 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
         return {
             type: "block",
             statements: [
-                { type: "def", dest: src, expr: left, mut: false, attr: [], loc: dummyLoc },
+                {
+                    type: "def",
+                    dest: src,
+                    expr: left,
+                    mut: false,
+                    attr: [],
+                    loc: dummyLoc,
+                },
                 ifExpr,
             ],
             loc: dummyLoc,

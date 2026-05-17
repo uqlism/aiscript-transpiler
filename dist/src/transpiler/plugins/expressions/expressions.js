@@ -3,7 +3,11 @@ import { TranspilerPlugin } from "../../base.js";
 import { dummyLoc } from "../../consts.js";
 import { validateBooleanExpression } from "../../utils/typeValidation.js";
 function isSimple(expr) {
-    return expr.type === "identifier" || expr.type === "num" || expr.type === "str" || expr.type === "bool" || expr.type === "null";
+    return (expr.type === "identifier" ||
+        expr.type === "num" ||
+        expr.type === "str" ||
+        expr.type === "bool" ||
+        expr.type === "null");
 }
 export class ExpressionsPlugin extends TranspilerPlugin {
     tryConvertExpressionAsExpression = (node) => {
@@ -120,10 +124,17 @@ export class ExpressionsPlugin extends TranspilerPlugin {
     }
     // fn?.() → if (fn != null) fn() else null  (単純な式なら eval 不要)
     wrapOptionalCall(target, args) {
-        const src = isSimple(target) ? target : this.converter.getUniqueIdentifier();
+        const src = isSimple(target)
+            ? target
+            : this.converter.getUniqueIdentifier();
         const ifExpr = {
             type: "if",
-            cond: { type: "neq", left: src, right: { type: "null", loc: dummyLoc }, loc: dummyLoc },
+            cond: {
+                type: "neq",
+                left: src,
+                right: { type: "null", loc: dummyLoc },
+                loc: dummyLoc,
+            },
             // biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
             then: { type: "call", target: src, args, loc: dummyLoc },
             elseif: [],
@@ -135,7 +146,14 @@ export class ExpressionsPlugin extends TranspilerPlugin {
         return {
             type: "block",
             statements: [
-                { type: "def", dest: src, expr: target, mut: false, attr: [], loc: dummyLoc },
+                {
+                    type: "def",
+                    dest: src,
+                    expr: target,
+                    mut: false,
+                    attr: [],
+                    loc: dummyLoc,
+                },
                 ifExpr,
             ],
             loc: dummyLoc,

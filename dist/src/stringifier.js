@@ -1,4 +1,18 @@
 import { version } from "./transpiler/consts.js";
+// AiScript パーサーの演算子優先度（低=弱く結合, 高=強く結合）
+// 実測による: ! は標準通り高優先度（!i < 10 → (!i) < 10）
+// || と && は同一優先度（区別なし・左結合）
+// *, /, %, ^ も同一優先度
+const PREC = {
+    or: 1, and: 1,
+    eq: 4, neq: 4, lt: 4, lteq: 4, gt: 4, gteq: 4,
+    add: 6, sub: 6,
+    mul: 7, div: 7, rem: 7, pow: 7,
+    not: 8, plus: 8, minus: 8,
+};
+function exprPrec(node) {
+    return PREC[node.type] ?? 100;
+}
 /**
  * AiScript ASTをAiScriptコード文字列に変換するクラス
  */
@@ -114,6 +128,16 @@ export class AiScriptStringifier {
     }
     stringifyExpression(node, indentLevel) {
         return this.stringifyNode(node, true, indentLevel);
+    }
+    /**
+     * 演算子の子として式を文字列化する。
+     * - isRight=false (左辺) : 自分の優先度 < 親の優先度 → ()
+     * - isRight=true  (右辺) : 自分の優先度 ≤ 親の優先度 → () (左結合の意味論を保つため)
+     */
+    childExpr(node, parentPrec, indentLevel, isRight = false) {
+        const str = this.stringifyExpression(node, indentLevel);
+        const p = exprPrec(node);
+        return (isRight ? p <= parentPrec : p < parentPrec) ? `(${str})` : str;
     }
     stringifyStatement(node, blockEval, indentLevel) {
         if (node.type === "block") {
@@ -352,89 +376,74 @@ export class AiScriptStringifier {
         return `${target}[${index}]`;
     }
     // Unary operators
+    // ! は高優先度（!i < 10 → (!i) < 10）なので、
+    // 低優先度の子（二項演算子など）には () が必要
     stringifyNot(node, indentLevel) {
-        const expr = this.stringifyExpression(node.expr, indentLevel);
-        return `(!${expr})`;
+        return `!${this.childExpr(node.expr, 8, indentLevel)}`;
     }
     stringifyPlus(node, indentLevel) {
-        const expr = this.stringifyExpression(node.expr, indentLevel);
-        return `(+${expr})`;
+        return `+${this.childExpr(node.expr, 8, indentLevel)}`;
     }
     stringifyMinus(node, indentLevel) {
-        const expr = this.stringifyExpression(node.expr, indentLevel);
-        return `(-${expr})`;
+        return `-${this.childExpr(node.expr, 8, indentLevel)}`;
     }
-    // Binary operators
+    // Binary operators（外側の () は不要、子は childExpr で優先度に従ってラップ）
     stringifyAnd(node, indentLevel) {
-        const left = this.stringifyExpression(node.left, indentLevel);
-        const right = this.stringifyExpression(node.right, indentLevel);
-        return `(${left} && ${right})`;
+        const P = 1;
+        return `${this.childExpr(node.left, P, indentLevel)} && ${this.childExpr(node.right, P, indentLevel, true)}`;
     }
     stringifyOr(node, indentLevel) {
-        const left = this.stringifyExpression(node.left, indentLevel);
-        const right = this.stringifyExpression(node.right, indentLevel);
-        return `(${left} || ${right})`;
+        const P = 1;
+        return `${this.childExpr(node.left, P, indentLevel)} || ${this.childExpr(node.right, P, indentLevel, true)}`;
     }
     stringifyAdd(node, indentLevel) {
-        const left = this.stringifyExpression(node.left, indentLevel);
-        const right = this.stringifyExpression(node.right, indentLevel);
-        return `(${left} + ${right})`;
+        const P = 6;
+        return `${this.childExpr(node.left, P, indentLevel)} + ${this.childExpr(node.right, P, indentLevel, true)}`;
     }
     stringifySub(node, indentLevel) {
-        const left = this.stringifyExpression(node.left, indentLevel);
-        const right = this.stringifyExpression(node.right, indentLevel);
-        return `(${left} - ${right})`;
+        const P = 6;
+        return `${this.childExpr(node.left, P, indentLevel)} - ${this.childExpr(node.right, P, indentLevel, true)}`;
     }
     stringifyMul(node, indentLevel) {
-        const left = this.stringifyExpression(node.left, indentLevel);
-        const right = this.stringifyExpression(node.right, indentLevel);
-        return `(${left} * ${right})`;
+        const P = 7;
+        return `${this.childExpr(node.left, P, indentLevel)} * ${this.childExpr(node.right, P, indentLevel, true)}`;
     }
     stringifyDiv(node, indentLevel) {
-        const left = this.stringifyExpression(node.left, indentLevel);
-        const right = this.stringifyExpression(node.right, indentLevel);
-        return `(${left} / ${right})`;
+        const P = 7;
+        return `${this.childExpr(node.left, P, indentLevel)} / ${this.childExpr(node.right, P, indentLevel, true)}`;
     }
     stringifyRem(node, indentLevel) {
-        const left = this.stringifyExpression(node.left, indentLevel);
-        const right = this.stringifyExpression(node.right, indentLevel);
-        return `(${left} % ${right})`;
+        const P = 7;
+        return `${this.childExpr(node.left, P, indentLevel)} % ${this.childExpr(node.right, P, indentLevel, true)}`;
     }
     stringifyPow(node, indentLevel) {
-        const left = this.stringifyExpression(node.left, indentLevel);
-        const right = this.stringifyExpression(node.right, indentLevel);
-        return `(${left} ^ ${right})`;
+        const P = 7;
+        return `${this.childExpr(node.left, P, indentLevel)} ^ ${this.childExpr(node.right, P, indentLevel, true)}`;
     }
     // Comparison operators
     stringifyEq(node, indentLevel) {
-        const left = this.stringifyExpression(node.left, indentLevel);
-        const right = this.stringifyExpression(node.right, indentLevel);
-        return `(${left} == ${right})`;
+        const P = 4;
+        return `${this.childExpr(node.left, P, indentLevel)} == ${this.childExpr(node.right, P, indentLevel, true)}`;
     }
     stringifyNeq(node, indentLevel) {
-        const left = this.stringifyExpression(node.left, indentLevel);
-        const right = this.stringifyExpression(node.right, indentLevel);
-        return `(${left} != ${right})`;
+        const P = 4;
+        return `${this.childExpr(node.left, P, indentLevel)} != ${this.childExpr(node.right, P, indentLevel, true)}`;
     }
     stringifyLt(node, indentLevel) {
-        const left = this.stringifyExpression(node.left, indentLevel);
-        const right = this.stringifyExpression(node.right, indentLevel);
-        return `(${left} < ${right})`;
+        const P = 4;
+        return `${this.childExpr(node.left, P, indentLevel)} < ${this.childExpr(node.right, P, indentLevel, true)}`;
     }
     stringifyLteq(node, indentLevel) {
-        const left = this.stringifyExpression(node.left, indentLevel);
-        const right = this.stringifyExpression(node.right, indentLevel);
-        return `(${left} <= ${right})`;
+        const P = 4;
+        return `${this.childExpr(node.left, P, indentLevel)} <= ${this.childExpr(node.right, P, indentLevel, true)}`;
     }
     stringifyGt(node, indentLevel) {
-        const left = this.stringifyExpression(node.left, indentLevel);
-        const right = this.stringifyExpression(node.right, indentLevel);
-        return `(${left} > ${right})`;
+        const P = 4;
+        return `${this.childExpr(node.left, P, indentLevel)} > ${this.childExpr(node.right, P, indentLevel, true)}`;
     }
     stringifyGteq(node, indentLevel) {
-        const left = this.stringifyExpression(node.left, indentLevel);
-        const right = this.stringifyExpression(node.right, indentLevel);
-        return `(${left} >= ${right})`;
+        const P = 4;
+        return `${this.childExpr(node.left, P, indentLevel)} >= ${this.childExpr(node.right, P, indentLevel, true)}`;
     }
 }
 //# sourceMappingURL=stringifier.js.map

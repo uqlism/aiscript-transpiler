@@ -4,7 +4,11 @@ import { dummyLoc } from "../../consts.js";
 import { validateElementAccess } from "../../utils/typeValidation.js";
 /** 副作用なく複数回評価できる単純な式かどうか */
 function isSimple(expr) {
-    return expr.type === "identifier" || expr.type === "num" || expr.type === "str" || expr.type === "bool" || expr.type === "null";
+    return (expr.type === "identifier" ||
+        expr.type === "num" ||
+        expr.type === "str" ||
+        expr.type === "bool" ||
+        expr.type === "null");
 }
 export class PropertyAccessPlugin extends TranspilerPlugin {
     tryConvertExpressionAsExpression = (node) => {
@@ -69,10 +73,17 @@ export class PropertyAccessPlugin extends TranspilerPlugin {
     /** ターゲット式をnullチェック付きif式でラップする。
      *  単純な式（識別子・リテラル）なら eval ブロック不要で if のみを返す。*/
     wrapOptional(target, buildAccess) {
-        const src = isSimple(target) ? target : this.converter.getUniqueIdentifier();
+        const src = isSimple(target)
+            ? target
+            : this.converter.getUniqueIdentifier();
         const ifExpr = {
             type: "if",
-            cond: { type: "neq", left: src, right: { type: "null", loc: dummyLoc }, loc: dummyLoc },
+            cond: {
+                type: "neq",
+                left: src,
+                right: { type: "null", loc: dummyLoc },
+                loc: dummyLoc,
+            },
             // biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
             then: buildAccess(src),
             elseif: [],
@@ -84,7 +95,14 @@ export class PropertyAccessPlugin extends TranspilerPlugin {
         return {
             type: "block",
             statements: [
-                { type: "def", dest: src, expr: target, mut: false, attr: [], loc: dummyLoc },
+                {
+                    type: "def",
+                    dest: src,
+                    expr: target,
+                    mut: false,
+                    attr: [],
+                    loc: dummyLoc,
+                },
                 ifExpr,
             ],
             loc: dummyLoc,
