@@ -16,6 +16,8 @@ export class StatementsPlugin extends TranspilerPlugin {
 				return [this.convertContinueStatement(node)];
 			case ts.isBlock(node):
 				return [this.convertBlockStatement(node)];
+			case ts.isThrowStatement(node):
+				return [this.convertThrowStatement(node)];
 		}
 	};
 
@@ -37,6 +39,30 @@ export class StatementsPlugin extends TranspilerPlugin {
 
 	private convertContinueStatement(_node: ts.ContinueStatement): Ast.Continue {
 		return { type: "continue", loc: dummyLoc };
+	}
+
+	// throw expr → Core:abort(msg)
+	// throw new Error("msg") / throw "msg" / throw someVar に対応
+	private convertThrowStatement(node: ts.ThrowStatement): Ast.Expression {
+		const expr = node.expression;
+		let msgExpr: Ast.Expression;
+
+		if (ts.isNewExpression(expr) && ts.isIdentifier(expr.expression)) {
+			// throw new Error("msg") → message プロパティまたは第一引数を使う
+			const firstArg = expr.arguments?.[0];
+			msgExpr = firstArg
+				? this.converter.convertExpressionAsExpression(firstArg)
+				: { type: "str", value: expr.expression.text, loc: dummyLoc };
+		} else {
+			msgExpr = this.converter.convertExpressionAsExpression(expr);
+		}
+
+		return {
+			type: "call",
+			target: { type: "identifier", name: "Core:abort", loc: dummyLoc },
+			args: [msgExpr],
+			loc: dummyLoc,
+		};
 	}
 
 	private convertBlockStatement(node: ts.Block): Ast.Block {

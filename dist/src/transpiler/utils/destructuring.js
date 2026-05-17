@@ -3,7 +3,7 @@ import { dummyLoc } from "../consts.js";
 /**
  * 分割代入を展開してAiScript のdef|assign文の配列に変換する
  */
-function convertDestructuringAssignment(nameNode, sourceExpr, isMutable, helper) {
+export function convertDestructuringAssignment(nameNode, sourceExpr, isMutable, helper) {
     const stmts = [];
     function pushStmt(targetName, expr) {
         stmts.push({

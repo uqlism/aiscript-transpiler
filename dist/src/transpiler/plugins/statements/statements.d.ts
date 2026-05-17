@@ -6,6 +6,7 @@ export declare class StatementsPlugin extends TranspilerPlugin {
     private convertReturnStatement;
     private convertBreakStatement;
     private convertContinueStatement;
+    private convertThrowStatement;
     private convertBlockStatement;
 }
 //# sourceMappingURL=statements.d.ts.map

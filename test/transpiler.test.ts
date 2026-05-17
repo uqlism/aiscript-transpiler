@@ -5,7 +5,13 @@ import ts from "typescript";
 import { TypeScriptToAiScriptTranspiler } from "../src/index.ts";
 import { AiScriptStringifier } from "../src/stringifier.ts";
 
-const testcases = [
+type TestCase = { title: string; ts: string } & (
+	| { ais: string; err?: undefined; valid?: undefined }
+	| { err: string; ais?: undefined; valid?: undefined }
+	| { valid: true; ais?: undefined; err?: undefined }
+	| { ais?: undefined; err?: undefined; valid?: undefined }
+);
+const testcases: TestCase[] = [
 	{
 		title: "コメントは無視",
 		ts: `// これはコメントです`,
@@ -714,6 +720,50 @@ const testcases = [
 		ts: `const __baz = "test";`,
 		err: "__から始まる変数名は使用できません",
 	},
+	// ?? / ??= / ?.()
+	{
+		title: "nullish coalescing ??",
+		ts: `let a: number | undefined = undefined; let b = a ?? 42;`,
+		valid: true,
+	},
+	{
+		title: "nullish coalescing 代入 ??=",
+		ts: `let a: number | undefined = undefined; a ??= 42;`,
+		ais: `var a = null; if (a == null) a = 42`,
+	},
+	{
+		title: "オプショナル呼び出し ?.()",
+		ts: `let callback: (() => number) | undefined = undefined; callback?.();`,
+		valid: true,
+	},
+	{
+		title: "オプショナルメソッド呼び出し ?.method()",
+		ts: `let obj: { foo: () => number } | undefined = undefined; obj?.foo();`,
+		valid: true,
+	},
+	// in operator
+	{
+		title: "in 演算子",
+		ts: `const obj = { a: 1 }; const r = "a" in obj;`,
+		ais: `let obj = { a: 1 }; let r = Obj:keys(obj).incl("a")`,
+	},
+	// throw
+	{
+		title: "throw new Error",
+		ts: `throw new Error("msg");`,
+		ais: `Core:abort("msg")`,
+	},
+	{
+		title: "throw 文字列",
+		ts: `throw "something went wrong";`,
+		ais: `Core:abort("something went wrong")`,
+	},
+	// for 文での分割代入
+	{
+		title: "for文 配列分割代入初期化",
+		ts: `for (let [i, j] = [0, 0]; i < 10; i++) { }`,
+		valid: true,
+	},
 	{
 		title: "[ERR] クラスのgetterはサポートされていない",
 		ts: `class MyClass { get value() { return 1; } }`,
@@ -774,7 +824,7 @@ function transpile(value: string) {
 }
 
 describe("TypeScript to AiScript Transpiler", () => {
-	test.each(testcases)("$title", ({ ts, ais, err }) => {
+	test.each(testcases)("$title", ({ ts, ais, err, valid }) => {
 		if (ais) {
 			expect(AiScriptStringifier.stringify(transpile(ts))).toBe(
 				AiScriptStringifier.stringify(Parser.parse(ais)),
@@ -785,16 +835,32 @@ describe("TypeScript to AiScript Transpiler", () => {
 				transpile(ts);
 			}).toThrow(err);
 		}
+		if (valid) {
+			// 変換が成功し、有効なAiScriptが生成されることを確認
+			expect(() => {
+				const ast = transpile(ts);
+				Parser.parse(AiScriptStringifier.stringify(ast));
+			}).not.toThrow();
+		}
 	});
 });
 
 describe("AiScript AST to AiScript Code Stringifier", () => {
-	test.each(testcases)("$title", ({ ais }) => {
+	test.each(testcases)("$title", ({ ts, ais, valid }) => {
 		if (ais) {
 			// AST -> 文字列 -> AST の変換が同一になることを確認
 			expectSameNode(
 				Parser.parse(AiScriptStringifier.stringify(Parser.parse(ais))),
 				Parser.parse(ais),
+			);
+		}
+		if (valid) {
+			// 変換後の文字列を再パースできることを確認
+			const ast = transpile(ts);
+			const stringified = AiScriptStringifier.stringify(ast);
+			expectSameNode(
+				Parser.parse(AiScriptStringifier.stringify(Parser.parse(stringified))),
+				Parser.parse(stringified),
 			);
 		}
 	});

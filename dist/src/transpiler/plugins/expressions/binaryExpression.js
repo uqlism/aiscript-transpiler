@@ -18,6 +18,10 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
                     ts.isObjectLiteralExpression(unwrapped.left))) {
                 return this.convertDestructuringAssignment(unwrapped);
             }
+            else if (unwrapped.operatorToken.kind === ts.SyntaxKind.QuestionQuestionEqualsToken) {
+                // ??= → a = a ?? b
+                return this.convertNullishAssignment(unwrapped);
+            }
             else if ([
                 ts.SyntaxKind.EqualsToken,
                 ts.SyntaxKind.PlusEqualsToken,
@@ -129,7 +133,47 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
                 this.converter.throwError(`サポートされていない二項演算子です: ${ts.SyntaxKind[node.operatorToken.kind]}`, node);
         }
     }
+    // a ?? b → eval { let __tmp = a; if (__tmp != null) __tmp else b }
+    convertNullishCoalescing(node) {
+        const left = this.converter.convertExpressionAsExpression(node.left);
+        const right = this.converter.convertExpressionAsExpression(node.right);
+        const tmp = this.converter.getUniqueIdentifier();
+        return {
+            type: "block",
+            statements: [
+                { type: "def", dest: tmp, expr: left, mut: false, attr: [], loc: dummyLoc },
+                {
+                    type: "if",
+                    cond: { type: "neq", left: tmp, right: { type: "null", loc: dummyLoc }, loc: dummyLoc },
+                    // biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
+                    then: tmp,
+                    elseif: [],
+                    else: right,
+                    loc: dummyLoc,
+                },
+            ],
+            loc: dummyLoc,
+        };
+    }
+    // a ??= b → if (a == null) a = b
+    convertNullishAssignment(node) {
+        const left = this.converter.convertExpressionAsExpression(node.left);
+        const right = this.converter.convertExpressionAsExpression(node.right);
+        const ifExpr = {
+            type: "if",
+            cond: { type: "eq", left, right: { type: "null", loc: dummyLoc }, loc: dummyLoc },
+            // biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
+            then: { type: "assign", dest: left, expr: right, loc: dummyLoc },
+            elseif: [],
+            loc: dummyLoc,
+        };
+        return [ifExpr];
+    }
     convertBinaryExpression(node) {
+        // ?? は右辺の遅延評価が必要なので先に処理
+        if (node.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken) {
+            return this.convertNullishCoalescing(node);
+        }
         const left = this.converter.convertExpressionAsExpression(node.left);
         const right = this.converter.convertExpressionAsExpression(node.right);
         // 型チェック
@@ -166,6 +210,19 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
                 return { type: "and", left, right, loc: dummyLoc };
             case ts.SyntaxKind.BarBarToken:
                 return { type: "or", left, right, loc: dummyLoc };
+            case ts.SyntaxKind.InKeyword:
+                // key in obj → Obj:keys(obj).incl(key)
+                return {
+                    type: "call",
+                    target: { type: "prop", target: {
+                            type: "call",
+                            target: { type: "identifier", name: "Obj:keys", loc: dummyLoc },
+                            args: [right],
+                            loc: dummyLoc,
+                        }, name: "incl", loc: dummyLoc },
+                    args: [left],
+                    loc: dummyLoc,
+                };
             default:
                 this.converter.throwError(`サポートされていない二項演算子です: ${ts.SyntaxKind[node.operatorToken.kind]}`, node);
         }

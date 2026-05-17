@@ -55,18 +55,124 @@ export class ExpressionsPlugin extends TranspilerPlugin {
 		return false;
 	}
 
-	private convertCallExpression(node: ts.CallExpression): Ast.Call {
-		const target = this.converter.convertExpressionAsExpression(
-			node.expression,
-		);
+	private convertCallExpression(node: ts.CallExpression): Ast.Call | Ast.Block {
 		const args = node.arguments.map((arg) =>
 			this.converter.convertExpressionAsExpression(arg),
 		);
 
+		// a?.() — 呼び出し自体がオプショナル
+		if (node.questionDotToken) {
+			const target = this.converter.convertExpressionAsExpression(
+				node.expression,
+			);
+			return this.wrapOptionalCall(target, args);
+		}
+
+		// a?.b() — プロパティアクセスがオプショナル
+		if (
+			ts.isPropertyAccessExpression(node.expression) &&
+			node.expression.questionDotToken
+		) {
+			const propNode = node.expression;
+			const obj = this.converter.convertExpressionAsExpression(
+				propNode.expression,
+			);
+			const propName = propNode.name.text;
+			// 名前空間アクセスはオプショナルチェーン不要
+			if (
+				obj.type === "identifier" &&
+				this.converter.getNamespaces().includes(obj.name)
+			) {
+				return {
+					type: "call",
+					target: {
+						type: "identifier",
+						name: `${obj.name}:${propName}`,
+						loc: dummyLoc,
+					},
+					args,
+					loc: dummyLoc,
+				};
+			}
+			const tmp = this.converter.getUniqueIdentifier();
+			return {
+				type: "block",
+				statements: [
+					{
+						type: "def",
+						dest: tmp,
+						expr: obj,
+						mut: false,
+						attr: [],
+						loc: dummyLoc,
+					},
+					{
+						type: "if",
+						cond: {
+							type: "neq",
+							left: tmp,
+							right: { type: "null", loc: dummyLoc },
+							loc: dummyLoc,
+						},
+						// biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
+						then: {
+							type: "call",
+							target: {
+								type: "prop",
+								target: tmp,
+								name: propName,
+								loc: dummyLoc,
+							},
+							args,
+							loc: dummyLoc,
+						},
+						elseif: [],
+						else: { type: "null", loc: dummyLoc },
+						loc: dummyLoc,
+					},
+				],
+				loc: dummyLoc,
+			};
+		}
+
+		const target = this.converter.convertExpressionAsExpression(
+			node.expression,
+		);
+		return { type: "call", target, args, loc: dummyLoc };
+	}
+
+	// fn?.() → eval { let __tmp = fn; if (__tmp != null) __tmp() else null }
+	private wrapOptionalCall(
+		target: Ast.Expression,
+		args: Ast.Expression[],
+	): Ast.Block {
+		const tmp = this.converter.getUniqueIdentifier();
 		return {
-			type: "call",
-			target,
-			args,
+			type: "block",
+			statements: [
+				{
+					type: "def",
+					dest: tmp,
+					expr: target,
+					mut: false,
+					attr: [],
+					loc: dummyLoc,
+				},
+				{
+					type: "if",
+					cond: {
+						type: "neq",
+						left: tmp,
+						right: { type: "null", loc: dummyLoc },
+						loc: dummyLoc,
+					},
+					// biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
+					then: { type: "call", target: tmp, args, loc: dummyLoc },
+					elseif: [],
+					else: { type: "null", loc: dummyLoc },
+					loc: dummyLoc,
+				},
+			],
 			loc: dummyLoc,
 		};
 	}

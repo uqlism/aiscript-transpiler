@@ -7,6 +7,7 @@ export declare class ExpressionsPlugin extends TranspilerPlugin {
     private convertThisKeyword;
     private isInsideClass;
     private convertCallExpression;
+    private wrapOptionalCall;
     private convertParenthesizedExpression;
     private convertConditionalExpression;
 }

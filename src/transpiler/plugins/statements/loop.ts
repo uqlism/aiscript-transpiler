@@ -2,6 +2,7 @@ import type { Ast } from "@syuilo/aiscript";
 import ts from "typescript";
 import { TranspilerPlugin } from "../../base.js";
 import { dummyLoc } from "../../consts.js";
+import { convertDestructuringAssignment } from "../../utils/destructuring.js";
 import { validateBooleanExpression } from "../../utils/typeValidation.js";
 
 export class LoopStatementsPlugin extends TranspilerPlugin {
@@ -50,10 +51,10 @@ export class LoopStatementsPlugin extends TranspilerPlugin {
 					const isMutable = Boolean(node.initializer.flags & ts.NodeFlags.Let);
 					const nameNode = declaration.name;
 
+					const expr = this.converter.convertExpressionAsExpression(
+						declaration.initializer,
+					);
 					if (ts.isIdentifier(nameNode)) {
-						const expr = this.converter.convertExpressionAsExpression(
-							declaration.initializer,
-						);
 						evalBody.push({
 							type: "def",
 							dest: { type: "identifier", name: nameNode.text, loc: dummyLoc },
@@ -63,9 +64,23 @@ export class LoopStatementsPlugin extends TranspilerPlugin {
 							loc: dummyLoc,
 						});
 					} else {
-						this.converter.throwError(
-							"for文では分割代入は現在サポートされていません",
-							nameNode as ts.Node,
+						// 分割代入: for (let [a, b] = arr; ...) など
+						const tmp = this.converter.getUniqueIdentifier();
+						evalBody.push({
+							type: "def",
+							dest: tmp,
+							expr,
+							mut: isMutable,
+							attr: [],
+							loc: dummyLoc,
+						});
+						evalBody.push(
+							...convertDestructuringAssignment(
+								nameNode,
+								tmp,
+								isMutable,
+								this.converter,
+							),
 						);
 					}
 				}

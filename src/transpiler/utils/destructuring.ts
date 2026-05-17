@@ -6,7 +6,7 @@ import { dummyLoc } from "../consts.js";
 /**
  * 分割代入を展開してAiScript のdef|assign文の配列に変換する
  */
-function convertDestructuringAssignment(
+export function convertDestructuringAssignment(
 	nameNode: ts.BindingPattern,
 	sourceExpr: Ast.Expression,
 	isMutable: boolean,

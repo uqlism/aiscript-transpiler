@@ -154,12 +154,14 @@ function formatTranspilerError(error: TranspilerError): string {
 	const pad = (n: number) => String(n).padStart(digits);
 
 	const context: string[] = [];
-	if (lineIndex > 0) context.push(`  ${pad(pos.startLine - 1)} | ${lines[lineIndex - 1]}`);
+	if (lineIndex > 0)
+		context.push(`  ${pad(pos.startLine - 1)} | ${lines[lineIndex - 1]}`);
 	context.push(`> ${pad(pos.startLine)} | ${lines[lineIndex]}`);
 	const indent = " ".repeat(pos.startColumn - 1);
 	const caret = "^".repeat(Math.max(1, pos.endColumn - pos.startColumn));
 	context.push(`  ${" ".repeat(digits)} | ${indent}${caret}`);
-	if (lineIndex + 1 < lines.length) context.push(`  ${pad(pos.startLine + 1)} | ${lines[lineIndex + 1]}`);
+	if (lineIndex + 1 < lines.length)
+		context.push(`  ${pad(pos.startLine + 1)} | ${lines[lineIndex + 1]}`);
 
 	return `${file}:${pos.startLine}:${pos.startColumn}: ${error.message}\n${context.join("\n")}`;
 }
