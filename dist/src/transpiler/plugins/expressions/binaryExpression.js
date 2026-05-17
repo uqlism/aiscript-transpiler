@@ -3,6 +3,9 @@ import { TranspilerPlugin } from "../../base.js";
 import { dummyLoc } from "../../consts.js";
 import { convertDestructuringPattern } from "../../utils/destructuring.js";
 import { validateBooleanLike, validateNumberLike, } from "../../utils/typeValidation.js";
+function isSimple(expr) {
+    return expr.type === "identifier" || expr.type === "num" || expr.type === "str" || expr.type === "bool" || expr.type === "null";
+}
 export class BinaryExpressionPlugin extends TranspilerPlugin {
     tryConvertExpressionAsExpression = (node) => {
         if (ts.isBinaryExpression(node)) {
@@ -134,36 +137,27 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
                 this.converter.throwError(`サポートされていない二項演算子です: ${ts.SyntaxKind[node.operatorToken.kind]}`, node);
         }
     }
-    // a ?? b → eval { let __tmp = a; if (__tmp != null) __tmp else b }
+    // a ?? b → if (a != null) a else b  (単純な式なら eval 不要)
     convertNullishCoalescing(node) {
         const left = this.converter.convertExpressionAsExpression(node.left);
         const right = this.converter.convertExpressionAsExpression(node.right);
-        const tmp = this.converter.getUniqueIdentifier();
+        const src = isSimple(left) ? left : this.converter.getUniqueIdentifier();
+        const ifExpr = {
+            type: "if",
+            cond: { type: "neq", left: src, right: { type: "null", loc: dummyLoc }, loc: dummyLoc },
+            // biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
+            then: src,
+            elseif: [],
+            else: right,
+            loc: dummyLoc,
+        };
+        if (src === left)
+            return ifExpr;
         return {
             type: "block",
             statements: [
-                {
-                    type: "def",
-                    dest: tmp,
-                    expr: left,
-                    mut: false,
-                    attr: [],
-                    loc: dummyLoc,
-                },
-                {
-                    type: "if",
-                    cond: {
-                        type: "neq",
-                        left: tmp,
-                        right: { type: "null", loc: dummyLoc },
-                        loc: dummyLoc,
-                    },
-                    // biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
-                    then: tmp,
-                    elseif: [],
-                    else: right,
-                    loc: dummyLoc,
-                },
+                { type: "def", dest: src, expr: left, mut: false, attr: [], loc: dummyLoc },
+                ifExpr,
             ],
             loc: dummyLoc,
         };

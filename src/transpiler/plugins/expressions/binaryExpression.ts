@@ -8,6 +8,16 @@ import {
 	validateNumberLike,
 } from "../../utils/typeValidation.js";
 
+function isSimple(expr: Ast.Expression): boolean {
+	return (
+		expr.type === "identifier" ||
+		expr.type === "num" ||
+		expr.type === "str" ||
+		expr.type === "bool" ||
+		expr.type === "null"
+	);
+}
+
 export class BinaryExpressionPlugin extends TranspilerPlugin {
 	override tryConvertExpressionAsExpression = (
 		node: ts.Expression,
@@ -160,36 +170,40 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
 		}
 	}
 
-	// a ?? b → eval { let __tmp = a; if (__tmp != null) __tmp else b }
-	private convertNullishCoalescing(node: ts.BinaryExpression): Ast.Block {
+	// a ?? b → if (a != null) a else b  (単純な式なら eval 不要)
+	private convertNullishCoalescing(
+		node: ts.BinaryExpression,
+	): Ast.If | Ast.Block {
 		const left = this.converter.convertExpressionAsExpression(node.left);
 		const right = this.converter.convertExpressionAsExpression(node.right);
-		const tmp = this.converter.getUniqueIdentifier();
+		const src = isSimple(left) ? left : this.converter.getUniqueIdentifier();
+		const ifExpr: Ast.If = {
+			type: "if",
+			cond: {
+				type: "neq",
+				left: src,
+				right: { type: "null", loc: dummyLoc },
+				loc: dummyLoc,
+			},
+			// biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
+			then: src,
+			elseif: [],
+			else: right,
+			loc: dummyLoc,
+		};
+		if (src === left) return ifExpr;
 		return {
 			type: "block",
 			statements: [
 				{
 					type: "def",
-					dest: tmp,
+					dest: src as Ast.Identifier,
 					expr: left,
 					mut: false,
 					attr: [],
 					loc: dummyLoc,
 				},
-				{
-					type: "if",
-					cond: {
-						type: "neq",
-						left: tmp,
-						right: { type: "null", loc: dummyLoc },
-						loc: dummyLoc,
-					},
-					// biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
-					then: tmp,
-					elseif: [],
-					else: right,
-					loc: dummyLoc,
-				},
+				ifExpr,
 			],
 			loc: dummyLoc,
 		};

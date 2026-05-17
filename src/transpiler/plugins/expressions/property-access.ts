@@ -4,6 +4,17 @@ import { TranspilerPlugin } from "../../base.js";
 import { dummyLoc } from "../../consts.js";
 import { validateElementAccess } from "../../utils/typeValidation.js";
 
+/** 副作用なく複数回評価できる単純な式かどうか */
+function isSimple(expr: Ast.Expression): boolean {
+	return (
+		expr.type === "identifier" ||
+		expr.type === "num" ||
+		expr.type === "str" ||
+		expr.type === "bool" ||
+		expr.type === "null"
+	);
+}
+
 export class PropertyAccessPlugin extends TranspilerPlugin {
 	override tryConvertExpressionAsExpression = (
 		node: ts.Expression,
@@ -56,7 +67,7 @@ export class PropertyAccessPlugin extends TranspilerPlugin {
 
 	private convertElementAccessExpression(
 		node: ts.ElementAccessExpression,
-	): Ast.Index | Ast.Block {
+	): Ast.Index | Ast.If | Ast.Block {
 		if (!node.argumentExpression) {
 			this.converter.throwError("配列アクセスにはインデックスが必要です", node);
 		}
@@ -90,37 +101,43 @@ export class PropertyAccessPlugin extends TranspilerPlugin {
 		}));
 	}
 
-	/** ターゲット式をnullチェック付きブロックでラップする */
+	/** ターゲット式をnullチェック付きif式でラップする。
+	 *  単純な式（識別子・リテラル）なら eval ブロック不要で if のみを返す。*/
 	private wrapOptional(
 		target: Ast.Expression,
-		buildAccess: (tmp: Ast.Identifier) => Ast.Expression,
-	): Ast.Block {
-		const tmp = this.converter.getUniqueIdentifier();
-		const def: Ast.Definition = {
-			type: "def",
-			dest: tmp,
-			expr: target,
-			mut: false,
-			attr: [],
-			loc: dummyLoc,
-		};
+		buildAccess: (src: Ast.Expression) => Ast.Expression,
+	): Ast.If | Ast.Block {
+		const src = isSimple(target)
+			? target
+			: this.converter.getUniqueIdentifier();
 		const ifExpr: Ast.If = {
 			type: "if",
 			cond: {
 				type: "neq",
-				left: tmp,
+				left: src,
 				right: { type: "null", loc: dummyLoc },
 				loc: dummyLoc,
 			},
 			// biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
-			then: buildAccess(tmp),
+			then: buildAccess(src),
 			elseif: [],
 			else: { type: "null", loc: dummyLoc },
 			loc: dummyLoc,
 		};
+		if (src === target) return ifExpr; // 単純: eval 不要
 		return {
 			type: "block",
-			statements: [def, ifExpr],
+			statements: [
+				{
+					type: "def",
+					dest: src as Ast.Identifier,
+					expr: target,
+					mut: false,
+					attr: [],
+					loc: dummyLoc,
+				},
+				ifExpr,
+			],
 			loc: dummyLoc,
 		};
 	}

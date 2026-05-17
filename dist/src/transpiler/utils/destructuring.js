@@ -141,10 +141,20 @@ export function convertDestructuringAssignment(nameNode, sourceExpr, isMutable, 
             };
             // AiScript は配列の範囲外アクセスで throw するため、
             // デフォルト値がある場合は長さチェックで分岐する
-            let elemExpr = element.initializer
+            const elemExpr = element.initializer
                 ? {
                     type: "if",
-                    cond: { type: "gt", left: { type: "prop", target: sourceExpr, name: "len", loc: dummyLoc }, right: { type: "num", value: index, loc: dummyLoc }, loc: dummyLoc },
+                    cond: {
+                        type: "gt",
+                        left: {
+                            type: "prop",
+                            target: sourceExpr,
+                            name: "len",
+                            loc: dummyLoc,
+                        },
+                        right: { type: "num", value: index, loc: dummyLoc },
+                        loc: dummyLoc,
+                    },
                     // biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
                     then: indexExpr,
                     elseif: [],

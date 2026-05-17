@@ -4,6 +4,16 @@ import { TranspilerPlugin } from "../../base.js";
 import { dummyLoc } from "../../consts.js";
 import { validateBooleanExpression } from "../../utils/typeValidation.js";
 
+function isSimple(expr: Ast.Expression): boolean {
+	return (
+		expr.type === "identifier" ||
+		expr.type === "num" ||
+		expr.type === "str" ||
+		expr.type === "bool" ||
+		expr.type === "null"
+	);
+}
+
 export class ExpressionsPlugin extends TranspilerPlugin {
 	override tryConvertExpressionAsExpression = (
 		node: ts.Expression,
@@ -55,7 +65,9 @@ export class ExpressionsPlugin extends TranspilerPlugin {
 		return false;
 	}
 
-	private convertCallExpression(node: ts.CallExpression): Ast.Call | Ast.Block {
+	private convertCallExpression(
+		node: ts.CallExpression,
+	): Ast.Call | Ast.If | Ast.Block {
 		const args = node.arguments.map((arg) =>
 			this.converter.convertExpressionAsExpression(arg),
 		);
@@ -141,37 +153,41 @@ export class ExpressionsPlugin extends TranspilerPlugin {
 		return { type: "call", target, args, loc: dummyLoc };
 	}
 
-	// fn?.() → eval { let __tmp = fn; if (__tmp != null) __tmp() else null }
+	// fn?.() → if (fn != null) fn() else null  (単純な式なら eval 不要)
 	private wrapOptionalCall(
 		target: Ast.Expression,
 		args: Ast.Expression[],
-	): Ast.Block {
-		const tmp = this.converter.getUniqueIdentifier();
+	): Ast.If | Ast.Block {
+		const src = isSimple(target)
+			? target
+			: this.converter.getUniqueIdentifier();
+		const ifExpr: Ast.If = {
+			type: "if",
+			cond: {
+				type: "neq",
+				left: src,
+				right: { type: "null", loc: dummyLoc },
+				loc: dummyLoc,
+			},
+			// biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
+			then: { type: "call", target: src, args, loc: dummyLoc },
+			elseif: [],
+			else: { type: "null", loc: dummyLoc },
+			loc: dummyLoc,
+		};
+		if (src === target) return ifExpr;
 		return {
 			type: "block",
 			statements: [
 				{
 					type: "def",
-					dest: tmp,
+					dest: src as Ast.Identifier,
 					expr: target,
 					mut: false,
 					attr: [],
 					loc: dummyLoc,
 				},
-				{
-					type: "if",
-					cond: {
-						type: "neq",
-						left: tmp,
-						right: { type: "null", loc: dummyLoc },
-						loc: dummyLoc,
-					},
-					// biome-ignore lint/suspicious/noThenProperty: AiScript AST requires then property
-					then: { type: "call", target: tmp, args, loc: dummyLoc },
-					elseif: [],
-					else: { type: "null", loc: dummyLoc },
-					loc: dummyLoc,
-				},
+				ifExpr,
 			],
 			loc: dummyLoc,
 		};
