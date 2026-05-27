@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { Parser } from "@syuilo/aiscript";
 import * as ts from "typescript";
 import { Transpiler as BaseTranspiler } from "./base.js";
 import { defaultNamespaces } from "./consts.js";
@@ -9,6 +10,7 @@ import { BinaryExpressionPlugin } from "./plugins/expressions/binaryExpression.j
 import { ExpressionsPlugin } from "./plugins/expressions/expressions.js";
 import { LiteralPlugin } from "./plugins/expressions/literals.js";
 import { PropertyAccessPlugin } from "./plugins/expressions/property-access.js";
+import { RegExpPlugin } from "./plugins/expressions/regexLiteral.js";
 import { UnaryExpressionPlugin } from "./plugins/expressions/unaryExpression.js";
 import { FunctionsPlugin } from "./plugins/functions.js";
 import { ExportStatementPlugin } from "./plugins/statements/exportStatement.js";
@@ -68,6 +70,16 @@ function loadCompilerOptions(userProjectRoot) {
     }
     return baseCompilerOptions;
 }
+/** 正規表現ライブラリのパース済みノード列（遅延初期化） */
+let _regexLibNodes = null;
+function getRegexLibNodes() {
+    if (_regexLibNodes !== null)
+        return _regexLibNodes;
+    const libPath = path.join(path.dirname(new URL(import.meta.url).pathname), "../regex-lib.ais");
+    const src = fs.readFileSync(libPath, "utf8");
+    _regexLibNodes = Parser.parse(src);
+    return _regexLibNodes;
+}
 export class TypeScriptToAiScriptTranspiler {
     #transpiler;
     constructor(options) {
@@ -79,6 +91,7 @@ export class TypeScriptToAiScriptTranspiler {
         // Import/Export plugins must come first to handle import/export modifiers
         transpiler.addPlugin(ImportStatementPlugin);
         transpiler.addPlugin(ExportStatementPlugin);
+        transpiler.addPlugin(RegExpPlugin); // LiteralPlugin より前
         transpiler.addPlugin(LiteralPlugin);
         transpiler.addPlugin(BinaryExpressionPlugin);
         transpiler.addPlugin(UnaryExpressionPlugin);
@@ -104,10 +117,10 @@ export class TypeScriptToAiScriptTranspiler {
         if (!entrySourceFile) {
             throw new Error(`Entry file not found: ${entryFilePath}`);
         }
-        return this.#transpiler.transpileProgram(program, entrySourceFile, doTypeCheck);
+        return this.#transpiler.transpileProgram(program, entrySourceFile, doTypeCheck, getRegexLibNodes());
     }
     transpileProgram(program, entrySourceFile, doTypeCheck = true) {
-        return this.#transpiler.transpileProgram(program, entrySourceFile, doTypeCheck);
+        return this.#transpiler.transpileProgram(program, entrySourceFile, doTypeCheck, getRegexLibNodes());
     }
 }
 //# sourceMappingURL=main.js.map

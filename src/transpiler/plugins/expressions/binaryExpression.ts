@@ -92,7 +92,7 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
 
 	private convertBinaryAssignExpression(
 		node: ts.BinaryExpression,
-	): Ast.Statement[] {
+	): (Ast.Statement | Ast.Expression)[] {
 		const left = this.converter.convertExpressionAsExpression(node.left);
 		const right = this.converter.convertExpressionAsExpression(node.right);
 
@@ -411,6 +411,30 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
 		};
 	}
 
+	/**
+	 * 文字列比較のポリフィル。AiScript の lt/gt は数値専用なので Str:lt を使う。
+	 * Str:lt(a, b) は a < b なら -1、等しければ 0、a > b なら 1 を返す。
+	 *
+	 *   a < b  → Str:lt(a, b) < 0
+	 *   a <= b → Str:lt(a, b) <= 0
+	 *   a > b  → Str:lt(a, b) > 0
+	 *   a >= b → Str:lt(a, b) >= 0
+	 */
+	private buildStringCompare(
+		left: Ast.Expression,
+		right: Ast.Expression,
+		op: "lt" | "lteq" | "gt" | "gteq",
+	): Ast.Expression {
+		const strLtCall: Ast.Call = {
+			type: "call",
+			target: { type: "identifier", name: "Str:lt", loc: dummyLoc },
+			args: [left, right],
+			loc: dummyLoc,
+		};
+		const zero: Ast.Num = { type: "num", value: 0, loc: dummyLoc };
+		return { type: op, left: strLtCall, right: zero, loc: dummyLoc };
+	}
+
 	private convertBinaryExpression(node: ts.BinaryExpression): Ast.Expression {
 		// 遅延評価が必要な演算子は先に処理
 		switch (node.operatorToken.kind) {
@@ -537,12 +561,41 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
 			case ts.SyntaxKind.ExclamationEqualsEqualsToken:
 				return { type: "neq", left, right, loc: dummyLoc };
 			case ts.SyntaxKind.LessThanToken:
+				// 文字列比較は AiScript の lt が非対応なので Str:lt でポリフィル
+				// "a" < "b" → Str:lt(a, b) < 0
+				if (
+					this.converter.doTypeCheck &&
+					isStringLike(node.left, this.converter.typeChecker)
+				) {
+					return this.buildStringCompare(left, right, "lt");
+				}
 				return { type: "lt", left, right, loc: dummyLoc };
 			case ts.SyntaxKind.LessThanEqualsToken:
+				// "a" <= "b" → Str:lt(a, b) <= 0
+				if (
+					this.converter.doTypeCheck &&
+					isStringLike(node.left, this.converter.typeChecker)
+				) {
+					return this.buildStringCompare(left, right, "lteq");
+				}
 				return { type: "lteq", left, right, loc: dummyLoc };
 			case ts.SyntaxKind.GreaterThanToken:
+				// "a" > "b" → Str:lt(a, b) > 0
+				if (
+					this.converter.doTypeCheck &&
+					isStringLike(node.left, this.converter.typeChecker)
+				) {
+					return this.buildStringCompare(left, right, "gt");
+				}
 				return { type: "gt", left, right, loc: dummyLoc };
 			case ts.SyntaxKind.GreaterThanEqualsToken:
+				// "a" >= "b" → Str:lt(a, b) >= 0
+				if (
+					this.converter.doTypeCheck &&
+					isStringLike(node.left, this.converter.typeChecker)
+				) {
+					return this.buildStringCompare(left, right, "gteq");
+				}
 				return { type: "gteq", left, right, loc: dummyLoc };
 			case ts.SyntaxKind.InKeyword:
 				// key in obj → Obj:keys(obj).incl(key)

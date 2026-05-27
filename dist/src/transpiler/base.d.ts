@@ -1,5 +1,12 @@
 import type { Ast } from "@syuilo/aiscript";
 import * as ts from "typescript";
+/** 正規表現コンパイル関数名 */
+export declare const REGEX_COMPILE_FN = "__re_compile";
+export type RegexHoist = {
+    id: Ast.Identifier;
+    pattern: string;
+    flags: string;
+};
 /**
  * TypeScript位置情報付きトランスパイラーエラー
  */
@@ -20,9 +27,9 @@ export declare class Transpiler {
     addPlugin(pluginFactory: new (converter: TranspilerContext) => TranspilerPlugin): void;
     /**
      * TypeScript Programを受け取ってAiScript ASTに変換する
-     * 核となる変換処理のみを行う
+     * @param regexLibNodes 正規表現が使われた場合に先頭に挿入するライブラリノード列
      */
-    transpileProgram(program: ts.Program, entrySourceFile: ts.SourceFile, doTypeCheck?: boolean): Ast.Node[];
+    transpileProgram(program: ts.Program, entrySourceFile: ts.SourceFile, doTypeCheck?: boolean, regexLibNodes?: Ast.Node[]): Ast.Node[];
 }
 export type TranspilerContext = {
     convertExpressionAsExpression(expr: ts.Expression): Ast.Expression;
@@ -38,6 +45,8 @@ export type TranspilerContext = {
     addExport(name: string): void;
     /** export * from './other' 用: 丸ごと再エクスポートするモジュール参照を登録 */
     addReExportAll(moduleRef: Ast.Expression): void;
+    registerRegexLiteral(pattern: string, flags: string): Ast.Identifier;
+    popRegexHoists(): RegexHoist[];
 };
 export declare class TranspilerPlugin {
     protected converter: TranspilerContext;

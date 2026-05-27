@@ -3,7 +3,31 @@ import * as ts from "typescript";
 import { reservedWords } from "./consts.js";
 /** モジュールオブジェクトの変数名 */
 const MODULES_VAR = "__modules";
+/** 正規表現コンパイル関数名 */
+export const REGEX_COMPILE_FN = "__re_compile";
 const emptyLoc = { start: { column: 0, line: 0 }, end: { column: 0, line: 0 } };
+function buildRegexHoistDefs(hoists) {
+    return hoists.map(({ id, pattern, flags }) => ({
+        type: "def",
+        dest: id,
+        expr: {
+            type: "call",
+            target: {
+                type: "identifier",
+                name: REGEX_COMPILE_FN,
+                loc: emptyLoc,
+            },
+            args: [
+                { type: "str", value: pattern, loc: emptyLoc },
+                { type: "str", value: flags, loc: emptyLoc },
+            ],
+            loc: emptyLoc,
+        },
+        mut: false,
+        attr: [],
+        loc: emptyLoc,
+    }));
+}
 /**
  * TypeScript位置情報付きトランスパイラーエラー
  */
@@ -39,9 +63,9 @@ export class Transpiler {
     }
     /**
      * TypeScript Programを受け取ってAiScript ASTに変換する
-     * 核となる変換処理のみを行う
+     * @param regexLibNodes 正規表現が使われた場合に先頭に挿入するライブラリノード列
      */
-    transpileProgram(program, entrySourceFile, doTypeCheck = true) {
+    transpileProgram(program, entrySourceFile, doTypeCheck = true, regexLibNodes) {
         const context = new TranspilerContextImpl(entrySourceFile, doTypeCheck, program, this.#namespaces);
         this.#pluiginFactories.forEach((x) => {
             context.addPlugin(x);
@@ -50,6 +74,7 @@ export class Transpiler {
         const sortedModules = context.getSortedModules();
         const nonEntryModules = sortedModules.filter((m) => m.modulePath !== undefined);
         const result = [];
+        let anyRegexUsed = false;
         // モジュールが存在する場合は __modules オブジェクトを宣言する
         if (nonEntryModules.length > 0) {
             result.push({
@@ -78,6 +103,12 @@ export class Transpiler {
                         throw new Error("unknown node");
                 }
             });
+            // モジュール内の正規表現リテラルをホイスト
+            const modRegexHoists = context.popRegexHoists();
+            if (modRegexHoists.length > 0) {
+                anyRegexUsed = true;
+                moduleStatements.unshift(...buildRegexHoistDefs(modRegexHoists));
+            }
             const exportVars = context.popExports();
             const reExportAlls = context.popReExportAlls();
             // エクスポートオブジェクトを生成して末尾に追加
@@ -122,20 +153,32 @@ export class Transpiler {
             }
         }
         // Process the entry file
+        const entryNodes = [];
         ts.forEachChild(entrySourceFile, (node) => {
             switch (true) {
                 case node.kind === ts.SyntaxKind.EndOfFileToken:
                     return;
                 case ts.isExpression(node):
-                    result.push(...context.convertExpressionAsStatements(node));
+                    entryNodes.push(...context.convertExpressionAsStatements(node));
                     return;
                 case ts.isStatement(node):
-                    result.push(...context.convertStatementAsStatements(node));
+                    entryNodes.push(...context.convertStatementAsStatements(node));
                     return;
                 default:
                     throw new Error("unknown node");
             }
         });
+        // エントリファイルの正規表現リテラルをホイスト
+        const entryRegexHoists = context.popRegexHoists();
+        if (entryRegexHoists.length > 0) {
+            anyRegexUsed = true;
+            result.push(...buildRegexHoistDefs(entryRegexHoists));
+        }
+        result.push(...entryNodes);
+        // 正規表現が使われていたらライブラリを先頭に挿入
+        if (anyRegexUsed && regexLibNodes && regexLibNodes.length > 0) {
+            result.unshift(...regexLibNodes);
+        }
         return result;
     }
 }
@@ -148,6 +191,8 @@ class TranspilerContextImpl {
     #reExportAlls;
     #sortedModules;
     #namespaces;
+    #regexLiterals;
+    #regexCounter = 0;
     constructor(entrySourceFile, doTypeCheck, program, namespaces) {
         this.#entrySourceFile = entrySourceFile;
         this.#program = program;
@@ -158,6 +203,7 @@ class TranspilerContextImpl {
         this.#exportVars = new Set();
         this.#reExportAlls = [];
         this.#namespaces = namespaces;
+        this.#regexLiterals = new Map();
         // Build sorted modules with dependency order and circular dependency check
         this.#sortedModules = this.buildSortedModules();
     }
@@ -256,6 +302,25 @@ class TranspilerContextImpl {
     popReExportAlls() {
         const result = this.#reExportAlls;
         this.#reExportAlls = [];
+        return result;
+    }
+    registerRegexLiteral(pattern, flags) {
+        const key = `${pattern}\0${flags}`;
+        const existing = this.#regexLiterals.get(key);
+        if (existing)
+            return existing.id;
+        const id = {
+            type: "identifier",
+            name: `__re${this.#regexCounter++}`,
+            loc: emptyLoc,
+        };
+        this.#regexLiterals.set(key, { id, pattern, flags });
+        return id;
+    }
+    popRegexHoists() {
+        const result = [...this.#regexLiterals.values()];
+        this.#regexLiterals = new Map();
+        this.#regexCounter = 0;
         return result;
     }
     /** エントリファイル以外のモジュールを返す */

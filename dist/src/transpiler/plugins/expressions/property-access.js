@@ -1,7 +1,7 @@
 import ts from "typescript";
 import { TranspilerPlugin } from "../../base.js";
 import { dummyLoc } from "../../consts.js";
-import { validateElementAccess } from "../../utils/typeValidation.js";
+import { isNumberLike, validateElementAccess, } from "../../utils/typeValidation.js";
 /** 副作用なく複数回評価できる単純な式かどうか */
 function isSimple(expr) {
     return (expr.type === "identifier" ||
@@ -53,7 +53,10 @@ export class PropertyAccessPlugin extends TranspilerPlugin {
         }
         validateElementAccess(node.expression, node.argumentExpression, this.converter);
         const target = this.converter.convertExpressionAsExpression(node.expression);
-        const index = this.converter.convertExpressionAsExpression(node.argumentExpression);
+        // 数値インデックスシグネチャを持つオブジェクト型（RegExpMatchResult 等）に
+        // number インデックスでアクセスする場合、AiScript ではオブジェクトキーが
+        // 文字列なので数値を文字列に変換する
+        const index = this.buildIndex(node);
         if (!node.questionDotToken) {
             return {
                 type: "index",
@@ -69,6 +72,46 @@ export class PropertyAccessPlugin extends TranspilerPlugin {
             index,
             loc: dummyLoc,
         }));
+    }
+    /**
+     * 要素アクセスのインデックス式を AiScript 用に変換する。
+     * オブジェクト型に数値インデックスでアクセスする場合（RegExpMatchResult[0] 等）は
+     * 数値リテラルを文字列リテラルに変換し、それ以外は変換済み式をそのまま返す。
+     */
+    buildIndex(node) {
+        // biome-ignore lint/style/noNonNullAssertion: buildIndex は argumentExpression が存在する場合のみ呼ばれる
+        const argExpr = node.argumentExpression;
+        const converted = this.converter.convertExpressionAsExpression(argExpr);
+        if (!this.converter.doTypeCheck)
+            return converted;
+        const targetType = this.converter.typeChecker.getTypeAtLocation(node.expression);
+        // 対象が配列ライクなら数値インデックスをそのまま使う
+        if (this.converter.typeChecker.isArrayLikeType(targetType)) {
+            return converted;
+        }
+        // オブジェクト型で数値インデックスを持つ場合、数値→文字列変換
+        if (targetType.flags & ts.TypeFlags.Object &&
+            isNumberLike(argExpr, this.converter.typeChecker)) {
+            const numIndexType = this.converter.typeChecker.getIndexTypeOfType(targetType, ts.IndexKind.Number);
+            if (numIndexType) {
+                // 数値リテラルは直接 string リテラルに変換
+                if (converted.type === "num") {
+                    return {
+                        type: "str",
+                        value: String(converted.value),
+                        loc: dummyLoc,
+                    };
+                }
+                // 動的な数値式は Core:to_str() で変換
+                return {
+                    type: "call",
+                    target: { type: "identifier", name: "Core:to_str", loc: dummyLoc },
+                    args: [converted],
+                    loc: dummyLoc,
+                };
+            }
+        }
+        return converted;
     }
     /** ターゲット式をnullチェック付きif式でラップする。
      *  単純な式（識別子・リテラル）なら eval ブロック不要で if のみを返す。*/

@@ -876,6 +876,67 @@ const testcases: TestCase[] = [
 		ts: `export default 42;`,
 		ais: `let __default = 42`,
 	},
+	// ---- as / satisfies / void ----
+	{
+		title: "as 型アサーション",
+		ts: `const x = 42 as number`,
+		ais: `let x = 42`,
+	},
+	{
+		title: "as unknown as T（二重アサーション）",
+		ts: `const x = "hello" as unknown as number`,
+		ais: `let x = "hello"`,
+	},
+	{
+		title: "satisfies 演算子",
+		ts: `const x = { a: 1 } satisfies Record<string, number>`,
+		ais: `let x = { a: 1 }`,
+	},
+	{
+		// void は式として使うと null を返す
+		title: "void 0 を式として使う → null",
+		ts: `const x = void 0`,
+		ais: `let x = null`,
+	},
+	{
+		// void expr を式として使うと eval { expr; null } になる
+		title: "void 関数呼び出しを式として使う → eval{call; null}",
+		ts: `const f = () => 1; const x = void f()`,
+		ais: `let f = @() { return 1 }; let x = eval { f(); null }`,
+	},
+	{
+		// void expr を文として使うと副作用のために expr だけ実行する
+		title: "void 関数呼び出しを文として使う → 呼び出しのみ",
+		ts: `const f = () => 1; void f()`,
+		ais: `let f = @() { return 1 }; f()`,
+	},
+	// ---- 文字列比較 ----
+	{
+		title: "文字列比較 < → Str:lt ポリフィル",
+		ts: `const a = "b" < "c"`,
+		ais: `let a = Str:lt("b", "c") < 0`,
+	},
+	{
+		title: "文字列比較 <= → Str:lt ポリフィル",
+		ts: `const a = "b" <= "c"`,
+		ais: `let a = Str:lt("b", "c") <= 0`,
+	},
+	{
+		title: "文字列比較 > → Str:lt ポリフィル",
+		ts: `const a = "b" > "c"`,
+		ais: `let a = Str:lt("b", "c") > 0`,
+	},
+	{
+		title: "文字列比較 >= → Str:lt ポリフィル",
+		ts: `const a = "b" >= "c"`,
+		ais: `let a = Str:lt("b", "c") >= 0`,
+	},
+	// ---- スプレッド引数エラー ----
+	{
+		title: "[ERR] スプレッド引数はサポートされていない",
+		ts: `const f = (...args: number[]) => args; const arr = [1, 2]; f(...arr)`,
+		err: "スプレッド引数はサポートされていません",
+	},
 	{
 		title: "[ERR] クラスのgetterはサポートされていない",
 		ts: `class MyClass { get value() { return 1; } }`,

@@ -145,7 +145,14 @@ export class LiteralPlugin extends TranspilerPlugin {
     buildDynamicObj(props) {
         const tmp = this.converter.getUniqueIdentifier();
         const statements = [
-            { type: "def", dest: tmp, expr: { type: "obj", value: new Map(), loc: dummyLoc }, mut: true, attr: [], loc: dummyLoc },
+            {
+                type: "def",
+                dest: tmp,
+                expr: { type: "obj", value: new Map(), loc: dummyLoc },
+                mut: true,
+                attr: [],
+                loc: dummyLoc,
+            },
         ];
         let staticAccum = new Map();
         const flushStatic = () => {
@@ -154,7 +161,12 @@ export class LiteralPlugin extends TranspilerPlugin {
             statements.push({
                 type: "assign",
                 dest: tmp,
-                expr: { type: "call", target: { type: "identifier", name: "Obj:merge", loc: dummyLoc }, args: [tmp, { type: "obj", value: staticAccum, loc: dummyLoc }], loc: dummyLoc },
+                expr: {
+                    type: "call",
+                    target: { type: "identifier", name: "Obj:merge", loc: dummyLoc },
+                    args: [tmp, { type: "obj", value: staticAccum, loc: dummyLoc }],
+                    loc: dummyLoc,
+                },
                 loc: dummyLoc,
             });
             staticAccum = new Map();
@@ -163,11 +175,32 @@ export class LiteralPlugin extends TranspilerPlugin {
             if (ts.isSpreadAssignment(prop)) {
                 flushStatic();
                 const spread = this.converter.convertExpressionAsExpression(prop.expression);
-                statements.push({ type: "assign", dest: tmp, expr: { type: "call", target: { type: "identifier", name: "Obj:merge", loc: dummyLoc }, args: [tmp, spread], loc: dummyLoc }, loc: dummyLoc });
+                statements.push({
+                    type: "assign",
+                    dest: tmp,
+                    expr: {
+                        type: "call",
+                        target: { type: "identifier", name: "Obj:merge", loc: dummyLoc },
+                        args: [tmp, spread],
+                        loc: dummyLoc,
+                    },
+                    loc: dummyLoc,
+                });
             }
-            else if (ts.isPropertyAssignment(prop) && ts.isComputedPropertyName(prop.name)) {
+            else if (ts.isPropertyAssignment(prop) &&
+                ts.isComputedPropertyName(prop.name)) {
                 flushStatic();
-                statements.push({ type: "assign", dest: { type: "index", target: tmp, index: this.converter.convertExpressionAsExpression(prop.name.expression), loc: dummyLoc }, expr: this.converter.convertExpressionAsExpression(prop.initializer), loc: dummyLoc });
+                statements.push({
+                    type: "assign",
+                    dest: {
+                        type: "index",
+                        target: tmp,
+                        index: this.converter.convertExpressionAsExpression(prop.name.expression),
+                        loc: dummyLoc,
+                    },
+                    expr: this.converter.convertExpressionAsExpression(prop.initializer),
+                    loc: dummyLoc,
+                });
             }
             else if (ts.isPropertyAssignment(prop)) {
                 staticAccum.set(prop.name.getText() || "", this.converter.convertExpressionAsExpression(prop.initializer));

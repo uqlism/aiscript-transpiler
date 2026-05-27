@@ -93,7 +93,14 @@ export function validateElementAccess(targetExpr, indexExpr, context) {
         return;
     }
     // オブジェクト型の場合、インデックスはstring型である必要がある
+    // ただし、数値インデックスシグネチャを持つ型（RegExpMatchResult など）は
+    // number インデックスも許可する（変換は property-access プラグインが担当）
     if (targetType.flags & ts.TypeFlags.Object) {
+        if (isNumberLike(indexExpr, context.typeChecker)) {
+            const numIndexType = context.typeChecker.getIndexTypeOfType(targetType, ts.IndexKind.Number);
+            if (numIndexType)
+                return; // 数値インデックスシグネチャあり → OK
+        }
         if (!isStringLike(indexExpr, context.typeChecker)) {
             context.throwError(`オブジェクトのインデックスはstring型である必要があります。現在のインデックス型: ${targetTypeString}[${indexTypeString}]`, indexExpr);
         }
@@ -111,7 +118,7 @@ function isBooleanLike(expr, typeChecker) {
 /**
  * number型に代入可能な式かどうかを判定する
  */
-function isNumberLike(expr, typeChecker) {
+export function isNumberLike(expr, typeChecker) {
     return typeChecker.isTypeAssignableTo(typeChecker.getTypeAtLocation(expr), typeChecker.getNumberType());
 }
 /**
@@ -135,10 +142,46 @@ export function validateNumberLike(expr, context, errorMessage) {
     }
 }
 /**
- * string型に代入可能な式かどうかを判定する
+ * string型に代入可能な式かどうかを判定する。
+ * any/unknown 型は除外（型情報不足とみなし string 扱いしない）。
  */
-function isStringLike(expr, typeChecker) {
-    return typeChecker.isTypeAssignableTo(typeChecker.getTypeAtLocation(expr), typeChecker.getStringType());
+export function isStringLike(expr, typeChecker) {
+    const type = typeChecker.getTypeAtLocation(expr);
+    // any/unknown は string 扱いしない
+    if (type.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown))
+        return false;
+    return typeChecker.isTypeAssignableTo(type, typeChecker.getStringType());
+}
+/**
+ * ts.Type に文字列成分（string / string リテラル / テンプレートリテラル型 / union の一部）が
+ * 含まれるかどうかを判定する。
+ * any/unknown は含まれない扱いにして過剰な string 判定を防ぐ。
+ *
+ * 用途: `+` 演算子のオペランド型が `string | number` のように union を含む場合でも
+ *       文字列連結パスを選択できるようにする。
+ */
+export function hasStringComponent(type) {
+    if (type.flags &
+        (ts.TypeFlags.String |
+            ts.TypeFlags.StringLiteral |
+            ts.TypeFlags.TemplateLiteral |
+            ts.TypeFlags.StringMapping)) {
+        return true;
+    }
+    if (type.isUnion()) {
+        return type.types.some((t) => hasStringComponent(t));
+    }
+    return false;
+}
+/**
+ * ts.Type が boolean-like（any/unknown を除く）かどうか判定する。
+ * `&&` / `||` のネイティブ AiScript `and`/`or` ノードを使うかどうかの判断に使う。
+ */
+export function isBooleanLikeType(type, typeChecker) {
+    // any/unknown は型情報不足とみなし boolean とは扱わない
+    if (type.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown))
+        return false;
+    return typeChecker.isTypeAssignableTo(type, typeChecker.getBooleanType());
 }
 /**
  * 配列型の式かどうかを判定する

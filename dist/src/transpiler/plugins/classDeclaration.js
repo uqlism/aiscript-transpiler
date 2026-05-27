@@ -37,8 +37,16 @@ export class ClassDeclarationPlugin extends TranspilerPlugin {
         // インスタンスメソッドを収集
         const instanceMethods = node.members.filter((member) => ts.isMethodDeclaration(member) &&
             !member.modifiers?.some((mod) => mod.kind === ts.SyntaxKind.StaticKeyword));
+        // インスタンスフィールド（初期化子あり）を収集
+        const instanceFields = node.members.filter((member) => ts.isPropertyDeclaration(member) &&
+            member.initializer !== undefined &&
+            !member.modifiers?.some((mod) => mod.kind === ts.SyntaxKind.StaticKeyword));
+        // 静的フィールド（初期化子あり）を収集
+        const staticFields = node.members.filter((member) => ts.isPropertyDeclaration(member) &&
+            member.initializer !== undefined &&
+            member.modifiers?.some((mod) => mod.kind === ts.SyntaxKind.StaticKeyword) === true);
         // __new メソッドを生成
-        const newMethod = this.createNewMethod(ctor, instanceMethods, baseClassName);
+        const newMethod = this.createNewMethod(ctor, instanceFields, instanceMethods, baseClassName);
         // オブジェクトのプロパティを構築
         const objValue = new Map();
         objValue.set("__new", newMethod);
@@ -47,6 +55,13 @@ export class ClassDeclarationPlugin extends TranspilerPlugin {
             const methodName = method.name.text;
             const methodFn = this.convertMethodToFunction(method);
             objValue.set(methodName, methodFn);
+        }
+        // 静的フィールドを追加
+        for (const field of staticFields) {
+            if (!field.initializer)
+                continue;
+            const fieldName = field.name.text;
+            objValue.set(fieldName, this.converter.convertExpressionAsExpression(field.initializer));
         }
         const classObj = {
             type: "obj",
@@ -77,14 +92,33 @@ export class ClassDeclarationPlugin extends TranspilerPlugin {
         }
         return undefined;
     }
-    createNewMethod(ctor, instanceMethods, baseClassName) {
+    createNewMethod(ctor, instanceFields, instanceMethods, baseClassName) {
         // コンストラクタのパラメータを取得
         const params = ctor
             ? processParameters(ctor.parameters, this.converter)
             : [];
         // 関数本体を構築
         const children = [];
-        // 継承がない場合は最初に let __this = {} を追加
+        // フィールド初期化子を __this に代入するヘルパー
+        const addFieldInits = () => {
+            for (const field of instanceFields) {
+                if (!field.initializer)
+                    continue;
+                const fieldName = field.name.text;
+                children.push({
+                    type: "assign",
+                    dest: {
+                        type: "prop",
+                        target: { type: "identifier", name: "__this", loc: dummyLoc },
+                        name: fieldName,
+                        loc: dummyLoc,
+                    },
+                    expr: this.converter.convertExpressionAsExpression(field.initializer),
+                    loc: dummyLoc,
+                });
+            }
+        };
+        // 継承がない場合は最初に let __this = {} を追加してフィールド初期化
         if (!baseClassName) {
             children.push({
                 type: "def",
@@ -94,9 +128,11 @@ export class ClassDeclarationPlugin extends TranspilerPlugin {
                 attr: [],
                 loc: dummyLoc,
             });
+            addFieldInits();
         }
         // コンストラクタ本体を変換
         if (ctor?.body) {
+            let fieldInitsAdded = !!baseClassName === false; // 継承なしは既に追加済み
             for (const statement of ctor.body.statements) {
                 // super() 呼び出しは let __this = Base.__new(...) に変換
                 const superArgs = this.getSuperCallArgs(statement);
@@ -123,10 +159,37 @@ export class ClassDeclarationPlugin extends TranspilerPlugin {
                         attr: [],
                         loc: dummyLoc,
                     });
+                    // super() 直後にフィールド初期化子を挿入（TypeScript の仕様通り）
+                    if (!fieldInitsAdded) {
+                        addFieldInits();
+                        fieldInitsAdded = true;
+                    }
                     continue;
                 }
                 children.push(...this.converter.convertStatementAsStatements(statement));
             }
+        }
+        else if (baseClassName) {
+            // コンストラクタなし・継承あり → 暗黙の super() 呼び出し
+            children.push({
+                type: "def",
+                dest: { type: "identifier", name: "__this", loc: dummyLoc },
+                expr: {
+                    type: "call",
+                    target: {
+                        type: "prop",
+                        target: { type: "identifier", name: baseClassName, loc: dummyLoc },
+                        name: "__new",
+                        loc: dummyLoc,
+                    },
+                    args: [],
+                    loc: dummyLoc,
+                },
+                mut: false,
+                attr: [],
+                loc: dummyLoc,
+            });
+            addFieldInits();
         }
         // インスタンスメソッドを __this に追加
         for (const method of instanceMethods) {

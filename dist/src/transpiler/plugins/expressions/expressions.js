@@ -20,8 +20,33 @@ export class ExpressionsPlugin extends TranspilerPlugin {
                 return this.convertCallExpression(node);
             case ts.isParenthesizedExpression(node):
                 return this.convertParenthesizedExpression(node);
+            case ts.isNonNullExpression(node):
+                // TypeScript の非nullアサーション x! は AiScript では x のまま
+                return this.converter.convertExpressionAsExpression(node.expression);
+            case ts.isAsExpression(node):
+                // TypeScript の型アサーション (x as T) はランタイム動作なし → 内側の式をそのまま変換
+                return this.converter.convertExpressionAsExpression(node.expression);
+            case ts.isSatisfiesExpression(node):
+                // TypeScript の satisfies 演算子 (x satisfies T) もランタイム動作なし → 内側の式をそのまま変換
+                return this.converter.convertExpressionAsExpression(node.expression);
+            case ts.isVoidExpression(node):
+                // void expr → 副作用のために expr を実行して null を返す
+                return this.convertVoidExpression(node);
             case ts.isConditionalExpression(node):
                 return this.convertConditionalExpression(node);
+        }
+    };
+    tryConvertExpressionAsStatements = (node) => {
+        // void f() を文として使う場合は副作用のために f() のみ実行し null を捨てる
+        if (ts.isVoidExpression(node)) {
+            const inner = this.converter.convertExpressionAsExpression(node.expression);
+            return [inner];
+        }
+        // as / satisfies / ! は内側の式の statement 変換に委譲
+        if (ts.isAsExpression(node) ||
+            ts.isSatisfiesExpression(node) ||
+            ts.isNonNullExpression(node)) {
+            return this.converter.convertExpressionAsStatements(node.expression);
         }
     };
     convertIdentifier(node) {
@@ -53,6 +78,12 @@ export class ExpressionsPlugin extends TranspilerPlugin {
         return false;
     }
     convertCallExpression(node) {
+        // スプレッド引数は AiScript が対応していないためエラー
+        for (const arg of node.arguments) {
+            if (ts.isSpreadElement(arg)) {
+                this.converter.throwError("スプレッド引数はサポートされていません。AiScriptには Function.prototype.apply に相当する機能がありません", arg);
+            }
+        }
         const args = node.arguments.map((arg) => this.converter.convertExpressionAsExpression(arg));
         // a?.() — 呼び出し自体がオプショナル
         if (node.questionDotToken) {
@@ -161,6 +192,19 @@ export class ExpressionsPlugin extends TranspilerPlugin {
     }
     convertParenthesizedExpression(node) {
         return this.converter.convertExpressionAsExpression(node.expression);
+    }
+    convertVoidExpression(node) {
+        const expr = this.converter.convertExpressionAsExpression(node.expression);
+        // 単純なリテラルや識別子なら副作用なし → null のみ返す
+        if (isSimple(expr)) {
+            return { type: "null", loc: dummyLoc };
+        }
+        // 副作用がある可能性のある式 → eval ブロックで評価してから null を返す
+        return {
+            type: "block",
+            statements: [expr, { type: "null", loc: dummyLoc }],
+            loc: dummyLoc,
+        };
     }
     convertConditionalExpression(node) {
         const cond = coerceToBool(node.condition, this.converter.convertExpressionAsExpression(node.condition), this.converter);
