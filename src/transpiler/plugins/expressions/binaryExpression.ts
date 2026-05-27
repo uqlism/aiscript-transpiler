@@ -315,7 +315,10 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
 		}
 		const { typeChecker } = this.converter;
 		if (
-			isBooleanLikeType(typeChecker.getTypeAtLocation(node.left), typeChecker) &&
+			isBooleanLikeType(
+				typeChecker.getTypeAtLocation(node.left),
+				typeChecker,
+			) &&
 			isBooleanLikeType(typeChecker.getTypeAtLocation(node.right), typeChecker)
 		) {
 			return { type: "or", left, right, loc: dummyLoc };
@@ -369,7 +372,10 @@ export class BinaryExpressionPlugin extends TranspilerPlugin {
 		}
 		const { typeChecker } = this.converter;
 		if (
-			isBooleanLikeType(typeChecker.getTypeAtLocation(node.left), typeChecker) &&
+			isBooleanLikeType(
+				typeChecker.getTypeAtLocation(node.left),
+				typeChecker,
+			) &&
 			isBooleanLikeType(typeChecker.getTypeAtLocation(node.right), typeChecker)
 		) {
 			return { type: "and", left, right, loc: dummyLoc };

@@ -17,7 +17,11 @@ function buildRegexHoistDefs(hoists: RegexHoist[]): Ast.Definition[] {
 		dest: id,
 		expr: {
 			type: "call" as const,
-			target: { type: "identifier" as const, name: REGEX_COMPILE_FN, loc: emptyLoc },
+			target: {
+				type: "identifier" as const,
+				name: REGEX_COMPILE_FN,
+				loc: emptyLoc,
+			},
 			args: [
 				{ type: "str" as const, value: pattern, loc: emptyLoc },
 				{ type: "str" as const, value: flags, loc: emptyLoc },

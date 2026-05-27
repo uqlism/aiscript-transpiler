@@ -112,6 +112,7 @@ export class PropertyAccessPlugin extends TranspilerPlugin {
 	 * 数値リテラルを文字列リテラルに変換し、それ以外は変換済み式をそのまま返す。
 	 */
 	private buildIndex(node: ts.ElementAccessExpression): Ast.Expression {
+		// biome-ignore lint/style/noNonNullAssertion: buildIndex は argumentExpression が存在する場合のみ呼ばれる
 		const argExpr = node.argumentExpression!;
 		const converted = this.converter.convertExpressionAsExpression(argExpr);
 
@@ -121,7 +122,9 @@ export class PropertyAccessPlugin extends TranspilerPlugin {
 			node.expression,
 		);
 		// 対象が配列ライクなら数値インデックスをそのまま使う
-		if (this.converter.typeChecker.isArrayLikeType(targetType)) return converted;
+		if (this.converter.typeChecker.isArrayLikeType(targetType)) {
+			return converted;
+		}
 
 		// オブジェクト型で数値インデックスを持つ場合、数値→文字列変換
 		if (

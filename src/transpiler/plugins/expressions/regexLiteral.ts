@@ -1,8 +1,7 @@
 import type { Ast } from "@syuilo/aiscript";
 import ts from "typescript";
-import { TranspilerPlugin } from "../../base.js";
+import { REGEX_COMPILE_FN, TranspilerPlugin } from "../../base.js";
 import { dummyLoc } from "../../consts.js";
-import { REGEX_COMPILE_FN } from "../../base.js";
 
 export class RegExpPlugin extends TranspilerPlugin {
 	override tryConvertExpressionAsExpression = (
@@ -22,7 +21,9 @@ export class RegExpPlugin extends TranspilerPlugin {
 		}
 	};
 
-	private convertRegexLiteral(node: ts.RegularExpressionLiteral): Ast.Identifier {
+	private convertRegexLiteral(
+		node: ts.RegularExpressionLiteral,
+	): Ast.Identifier {
 		const raw = node.text; // e.g. "/foo+/gi"
 		const lastSlash = raw.lastIndexOf("/");
 		const pattern = raw.slice(1, lastSlash);
@@ -42,7 +43,8 @@ export class RegExpPlugin extends TranspilerPlugin {
 				node,
 			);
 		}
-		const patternExpr = this.converter.convertExpressionAsExpression(patternArg);
+		const patternExpr =
+			this.converter.convertExpressionAsExpression(patternArg);
 		const flagsArg = args[1];
 		const flagsExpr: Ast.Expression =
 			flagsArg !== undefined

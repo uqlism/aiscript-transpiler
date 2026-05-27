@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { Parser } from "@syuilo/aiscript";
 import type { Ast } from "@syuilo/aiscript";
+import { Parser } from "@syuilo/aiscript";
 import * as ts from "typescript";
 import { Transpiler as BaseTranspiler } from "./base.js";
 import { defaultNamespaces } from "./consts.js";
