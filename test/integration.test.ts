@@ -422,8 +422,8 @@ describe("Integration: RegExp", () => {
 
 		// ── exec() ────────────────────────────────────────────────────────
 		{
-			title: "exec: マッチしない → null",
-			ts: "const r = /xyz/; r.exec('hello') === null",
+			title: "exec: マッチしない → undefined",
+			ts: "const r = /xyz/; r.exec('hello') === undefined",
 			expected: true,
 		},
 		{

@@ -60,7 +60,7 @@ interface RegExp {
 	readonly source: string;
 	readonly flags: string;
 	test(str: string): boolean;
-	exec(str: string): RegExpMatchResult | null;
+	exec(str: string): RegExpMatchResult | undefined;
 	execAll(str: string): RegExpMatchResult[];
 	replace(str: string, replacement: string): string;
 	replaceWith(

@@ -196,9 +196,9 @@ const testcases: TestCase[] = [
 	},
 
 	{
-		title: "nullリテラル (undefined と同様に null に変換)",
+		title: "[ERR] nullリテラル",
 		ts: "let value = null;",
-		ais: "var value = null",
+		err: "nullは使用できません代わりにundefinedを使用してください",
 	},
 	{
 		title: "boolリテラル",
