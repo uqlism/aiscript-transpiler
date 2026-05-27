@@ -48,8 +48,32 @@ interface CallableFunction extends Function {}
 // biome-ignore lint/suspicious/noEmptyInterface: Ignore
 interface NewableFunction extends Function {}
 
-// biome-ignore lint/suspicious/noEmptyInterface: Ignore
-interface RegExp {}
+interface RegExpMatchResult {
+	readonly [n: number]: string | undefined;
+	readonly index: number;
+	readonly input: string;
+	readonly length: number;
+	readonly groups: { [key: string]: string | undefined } | undefined;
+}
+
+interface RegExp {
+	readonly source: string;
+	readonly flags: string;
+	test(str: string): boolean;
+	exec(str: string): RegExpMatchResult | null;
+	execAll(str: string): RegExpMatchResult[];
+	replace(str: string, replacement: string): string;
+	replaceWith(
+		str: string,
+		fn: (
+			match: string,
+			groups: (string | undefined)[],
+			index: number,
+			input: string,
+		) => string,
+	): string;
+	split(str: string, limit?: number): string[];
+}
 
 // biome-ignore lint/suspicious/noEmptyInterface: Ignore
 interface IArguments {}

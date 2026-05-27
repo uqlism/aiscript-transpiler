@@ -27,6 +27,9 @@ export class ExpressionsPlugin extends TranspilerPlugin {
 				return this.convertCallExpression(node);
 			case ts.isParenthesizedExpression(node):
 				return this.convertParenthesizedExpression(node);
+			case ts.isNonNullExpression(node):
+				// TypeScript の非nullアサーション x! は AiScript では x のまま
+				return this.converter.convertExpressionAsExpression(node.expression);
 			case ts.isConditionalExpression(node):
 				return this.convertConditionalExpression(node);
 		}

@@ -196,9 +196,9 @@ const testcases: TestCase[] = [
 	},
 
 	{
-		title: "[ERR] nullリテラル",
+		title: "nullリテラル (undefined と同様に null に変換)",
 		ts: "let value = null;",
-		err: "nullは使用できません代わりにundefinedを使用してください",
+		ais: "var value = null",
 	},
 	{
 		title: "boolリテラル",
@@ -253,7 +253,8 @@ const testcases: TestCase[] = [
 	{
 		title: "正常な二項演算 - 比較と算術",
 		ts: "6 === 5 && 5 > 4 + 3 * 2 ** 1",
-		ais: "( 6 == 5) && ( 5 > ( 4 + ( 3 * ( 2 ^ 1))))",
+		// 両辺が boolean なのでネイティブ and を使用
+		ais: "(6 == 5) && (5 > 4 + 3 * (2 ^ 1))",
 	},
 	{
 		title: "カッコ",
@@ -624,14 +625,16 @@ const testcases: TestCase[] = [
 		ais: `var obj = {x: 1, y: 2}; obj["x"];`,
 	},
 	{
-		title: "[ERR] 算術演算の左オペランドが文字列",
+		// 文字列 + 数値 は文字列連結としてポリフィル
+		title: "算術演算の左オペランドが文字列 → tmpl にポリフィル",
 		ts: `"hello" + 5`,
-		err: "算術演算子 '+' の左オペランドはNumber型である必要があります",
+		ais: '`hello{5}`',
 	},
 	{
-		title: "[ERR] 算術演算の右オペランドが文字列",
+		// 数値 + 文字列 は文字列連結としてポリフィル
+		title: "算術演算の右オペランドが文字列 → tmpl にポリフィル",
 		ts: `5 + "hello"`,
-		err: "算術演算子 '+' の右オペランドはNumber型である必要があります",
+		ais: '`{5}hello`',
 	},
 	{
 		title: "[ERR] 算術演算の両オペランドが文字列",
@@ -659,24 +662,28 @@ const testcases: TestCase[] = [
 		err: "算術演算子 '**' の右オペランドはNumber型である必要があります",
 	},
 	{
-		title: "論理演算子ANDの左オペランドが数値 (自動変換)",
+		// && は if-else ポリフィルで値を保持（左辺が truthy なら右辺、falsy なら左辺）
+		title: "論理演算子ANDの左オペランドが数値 (if-else ポリフィル)",
 		ts: `5 && true`,
-		ais: `(5 != 0) && true`,
+		ais: `if 5 != 0 true else 5`,
 	},
 	{
-		title: "論理演算子ANDの右オペランドが文字列 (自動変換)",
+		// true && "hello" → if true "hello" else true → "hello"
+		title: "論理演算子ANDの右オペランドが文字列 (if-else ポリフィル)",
 		ts: `true && "hello"`,
-		ais: `true && ("hello" != "")`,
+		ais: `if true "hello" else true`,
 	},
 	{
-		title: "論理演算子ORの左オペランドが数値 (自動変換)",
+		// || は if-else ポリフィルで値を保持（左辺が truthy なら左辺、falsy なら右辺）
+		title: "論理演算子ORの左オペランドが数値 (if-else ポリフィル)",
 		ts: `10 || false`,
-		ais: `(10 != 0) || false`,
+		ais: `if 10 != 0 10 else false`,
 	},
 	{
-		title: "論理演算子ORの右オペランドが数値 (自動変換)",
+		// false || 42 → if false false else 42 → 42
+		title: "論理演算子ORの右オペランドが数値 (if-else ポリフィル)",
 		ts: `false || 42`,
-		ais: `false || (42 != 0)`,
+		ais: `if false false else 42`,
 	},
 	{
 		title: "正常な算術演算 - 数値同士",
@@ -684,14 +691,17 @@ const testcases: TestCase[] = [
 		ais: `var result = 10 + ( 5 * 2)`,
 	},
 	{
+		// boolean 同士でも if-else ポリフィルを使用。結果は同じ。
 		title: "正常な論理演算 - boolean同士",
 		ts: `let result = true && false || true`,
-		ais: `var result = (true && false) || true`,
+		// 全てのオペランドが boolean なのでネイティブ and/or を使用
+		ais: `var result = true && false || true`,
 	},
 	{
-		title: "[ERR] 算術代入演算の左オペランドが文字列",
+		// 文字列 += は tmpl 代入にポリフィル
+		title: "算術代入演算の左オペランドが文字列 → tmpl 代入にポリフィル",
 		ts: `let str: string = "hello"; str += 5`,
-		err: "算術代入演算子 '+=' の左オペランドはNumber型である必要があります",
+		ais: `var str = "hello"; str = \`{str}{5}\``,
 	},
 	{
 		title: "[ERR] 算術代入演算の右オペランドが文字列",

@@ -5,7 +5,30 @@ import { reservedWords } from "./consts.js";
 
 /** モジュールオブジェクトの変数名 */
 const MODULES_VAR = "__modules";
+/** 正規表現コンパイル関数名 */
+export const REGEX_COMPILE_FN = "__re_compile";
 const emptyLoc = { start: { column: 0, line: 0 }, end: { column: 0, line: 0 } };
+
+export type RegexHoist = { id: Ast.Identifier; pattern: string; flags: string };
+
+function buildRegexHoistDefs(hoists: RegexHoist[]): Ast.Definition[] {
+	return hoists.map(({ id, pattern, flags }) => ({
+		type: "def" as const,
+		dest: id,
+		expr: {
+			type: "call" as const,
+			target: { type: "identifier" as const, name: REGEX_COMPILE_FN, loc: emptyLoc },
+			args: [
+				{ type: "str" as const, value: pattern, loc: emptyLoc },
+				{ type: "str" as const, value: flags, loc: emptyLoc },
+			],
+			loc: emptyLoc,
+		},
+		mut: false,
+		attr: [],
+		loc: emptyLoc,
+	}));
+}
 
 /**
  * TypeScript位置情報付きトランスパイラーエラー
@@ -55,12 +78,13 @@ export class Transpiler {
 
 	/**
 	 * TypeScript Programを受け取ってAiScript ASTに変換する
-	 * 核となる変換処理のみを行う
+	 * @param regexLibNodes 正規表現が使われた場合に先頭に挿入するライブラリノード列
 	 */
 	transpileProgram(
 		program: ts.Program,
 		entrySourceFile: ts.SourceFile,
 		doTypeCheck = true,
+		regexLibNodes?: Ast.Node[],
 	): Ast.Node[] {
 		const context = new TranspilerContextImpl(
 			entrySourceFile,
@@ -79,6 +103,7 @@ export class Transpiler {
 		);
 
 		const result: Ast.Node[] = [];
+		let anyRegexUsed = false;
 
 		// モジュールが存在する場合は __modules オブジェクトを宣言する
 		if (nonEntryModules.length > 0) {
@@ -111,6 +136,13 @@ export class Transpiler {
 						throw new Error("unknown node");
 				}
 			});
+			// モジュール内の正規表現リテラルをホイスト
+			const modRegexHoists = context.popRegexHoists();
+			if (modRegexHoists.length > 0) {
+				anyRegexUsed = true;
+				moduleStatements.unshift(...buildRegexHoistDefs(modRegexHoists));
+			}
+
 			const exportVars = context.popExports();
 			const reExportAlls = context.popReExportAlls();
 
@@ -159,20 +191,35 @@ export class Transpiler {
 		}
 
 		// Process the entry file
+		const entryNodes: Ast.Node[] = [];
 		ts.forEachChild(entrySourceFile, (node) => {
 			switch (true) {
 				case node.kind === ts.SyntaxKind.EndOfFileToken:
 					return;
 				case ts.isExpression(node):
-					result.push(...context.convertExpressionAsStatements(node));
+					entryNodes.push(...context.convertExpressionAsStatements(node));
 					return;
 				case ts.isStatement(node):
-					result.push(...context.convertStatementAsStatements(node));
+					entryNodes.push(...context.convertStatementAsStatements(node));
 					return;
 				default:
 					throw new Error("unknown node");
 			}
 		});
+
+		// エントリファイルの正規表現リテラルをホイスト
+		const entryRegexHoists = context.popRegexHoists();
+		if (entryRegexHoists.length > 0) {
+			anyRegexUsed = true;
+			result.push(...buildRegexHoistDefs(entryRegexHoists));
+		}
+		result.push(...entryNodes);
+
+		// 正規表現が使われていたらライブラリを先頭に挿入
+		if (anyRegexUsed && regexLibNodes && regexLibNodes.length > 0) {
+			result.unshift(...regexLibNodes);
+		}
+
 		return result;
 	}
 }
@@ -198,6 +245,10 @@ export type TranspilerContext = {
 	addExport(name: string): void;
 	/** export * from './other' 用: 丸ごと再エクスポートするモジュール参照を登録 */
 	addReExportAll(moduleRef: Ast.Expression): void;
+
+	// 正規表現リテラルのホイスト
+	registerRegexLiteral(pattern: string, flags: string): Ast.Identifier;
+	popRegexHoists(): RegexHoist[];
 };
 
 class TranspilerContextImpl implements TranspilerContext {
@@ -214,6 +265,8 @@ class TranspilerContextImpl implements TranspilerContext {
 		modulePath?: string;
 	}[];
 	#namespaces: string[];
+	#regexLiterals: Map<string, RegexHoist>;
+	#regexCounter = 0;
 	constructor(
 		entrySourceFile: ts.SourceFile,
 		doTypeCheck: boolean,
@@ -229,6 +282,7 @@ class TranspilerContextImpl implements TranspilerContext {
 		this.#exportVars = new Set<string>();
 		this.#reExportAlls = [];
 		this.#namespaces = namespaces;
+		this.#regexLiterals = new Map();
 
 		// Build sorted modules with dependency order and circular dependency check
 		this.#sortedModules = this.buildSortedModules();
@@ -352,6 +406,24 @@ class TranspilerContextImpl implements TranspilerContext {
 	popReExportAlls(): Ast.Expression[] {
 		const result = this.#reExportAlls;
 		this.#reExportAlls = [];
+		return result;
+	}
+	registerRegexLiteral(pattern: string, flags: string): Ast.Identifier {
+		const key = `${pattern}\0${flags}`;
+		const existing = this.#regexLiterals.get(key);
+		if (existing) return existing.id;
+		const id: Ast.Identifier = {
+			type: "identifier",
+			name: `__re${this.#regexCounter++}`,
+			loc: emptyLoc,
+		};
+		this.#regexLiterals.set(key, { id, pattern, flags });
+		return id;
+	}
+	popRegexHoists(): RegexHoist[] {
+		const result = [...this.#regexLiterals.values()];
+		this.#regexLiterals = new Map();
+		this.#regexCounter = 0;
 		return result;
 	}
 	/** エントリファイル以外のモジュールを返す */

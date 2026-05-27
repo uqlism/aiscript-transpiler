@@ -61,7 +61,7 @@ function transpileTs(tsCode: string): string {
 	};
 	const program = ts.createProgram(
 		["temp.ts", "aiscript.d.ts"],
-		{ nolib: true, types: [] },
+		{ nolib: true, types: [], strictNullChecks: true },
 		{
 			getSourceFile: (n) => (files as Record<string, ts.SourceFile>)[n],
 			writeFile: () => {},
@@ -78,7 +78,7 @@ function transpileTs(tsCode: string): string {
 	const ast = new TypeScriptToAiScriptTranspiler().transpileProgram(
 		program,
 		files["temp.ts"],
-		false, // 型チェックスキップ（型推論が不要なケースのため）
+		true, // 型チェック有効（正確なポリフィル選択に必要）
 	);
 	return AiScriptStringifier.stringify(ast);
 }
@@ -269,6 +269,113 @@ const cases: { title: string; expr: string }[] = [
 	// 比較と否定の組み合わせ
 	{ title: "優先度: 否定と比較混在", expr: "!false && 3 > 1" }, // true
 	{ title: "優先度: 否定と等値", expr: "!false === !false" }, // true: (true === true)
+
+	// ─── 非 boolean 値の || / && ─────────────────────────────────────
+	// JS では || / && はオペランドの値をそのまま返す（短絡評価）
+	// AiScript では coerceToBool で真偽値化してから and/or を返すため
+	// 両辺が truthy/falsy boolean に落ちると boolean になってしまう可能性がある
+
+	// || の左辺が truthy → 左辺の値を返す
+	{ title: "非bool OR: truthy文字列 || 文字列", expr: '"a" || "b"' },          // JS: "a"
+	{ title: "非bool OR: truthy数値 || 数値", expr: "1 || 2" },                   // JS: 1
+	{ title: "非bool OR: true || 数値", expr: "true || 42" },                     // JS: true
+
+	// || の左辺が falsy → 右辺の値を返す
+	{ title: "非bool OR: falsy空文字 || 文字列", expr: '"" || "fallback"' },      // JS: "fallback"
+	{ title: "非bool OR: 0 || 数値", expr: "0 || 42" },                           // JS: 42
+	{ title: "非bool OR: false || 文字列", expr: 'false || "fallback"' },         // JS: "fallback"
+	// null リテラルは AiScript 非対応のため除外。undefined を使用すること。
+	{ title: "非bool OR: undefined || 文字列", expr: 'undefined || "fallback"' }, // JS: "fallback"
+
+	// && の左辺が truthy → 右辺の値を返す
+	{ title: "非bool AND: truthy文字列 && 文字列", expr: '"a" && "b"' },          // JS: "b"
+	{ title: "非bool AND: truthy数値 && 数値", expr: "5 && 3" },                  // JS: 3
+	{ title: "非bool AND: true && 文字列", expr: 'true && "hello"' },             // JS: "hello"
+	{ title: "非bool AND: true && 数値", expr: "true && 42" },                    // JS: 42
+
+	// && の左辺が falsy → 左辺の値を返す
+	{ title: "非bool AND: 0 && 文字列", expr: '0 && "b"' },                       // JS: 0
+	{ title: "非bool AND: 空文字 && 文字列", expr: '"" && "b"' },                  // JS: ""
+	{ title: "非bool AND: false && 数値", expr: "false && 42" },                  // JS: false
+	// null リテラルは AiScript 非対応のため除外
+
+	// 短絡評価の副作用テストは「式中代入」が未サポートのためスキップ
+
+	// ─── ||= と &&= ─────────────────────────────────────────────────
+	{
+		title: "||= 数値: falsy時に代入される",
+		expr: "(() => { let x = 0; x ||= 42; return x; })()",                     // JS: 42
+	},
+	{
+		title: "||= 数値: truthy時は代入されない",
+		expr: "(() => { let x = 5; x ||= 42; return x; })()",                     // JS: 5
+	},
+	{
+		title: "&&= 数値: truthy時に代入される",
+		expr: "(() => { let x = 5; x &&= 42; return x; })()",                     // JS: 42
+	},
+	{
+		title: "&&= 数値: falsy時は代入されない",
+		expr: "(() => { let x = 0; x &&= 42; return x; })()",                     // JS: 0
+	},
+
+	// ─── 文字列演算 ───────────────────────────────────────────────────
+	// 注: AiScript の + / < / > は数値専用のため文字列連結・文字列大小比較は非対応
+	{ title: "文字列比較 ===", expr: '"abc" === "abc"' },                          // true
+	{ title: "文字列比較 !==", expr: '"abc" !== "xyz"' },                          // true
+
+	// ─── 再帰関数 ─────────────────────────────────────────────────────
+	// 注: evalAsJs は new Function で動くため TypeScript 型注釈は使えない
+	{
+		title: "再帰: 階乗 5!",
+		expr: "(() => { const fact = (n) => n <= 1 ? 1 : n * fact(n - 1); return fact(5); })()",
+	},
+	{
+		title: "再帰: フィボナッチ fib(7)",
+		expr: "(() => { const fib = (n) => n <= 1 ? n : fib(n - 1) + fib(n - 2); return fib(7); })()",
+	},
+
+	// ─── for...of ────────────────────────────────────────────────────
+	{
+		title: "for...of 配列の合計",
+		expr: "(() => { let s = 0; for (const x of [1, 2, 3, 4, 5]) s += x; return s; })()",
+	},
+	{
+		title: "for...of 最大値",
+		expr: "(() => { let m = 0; for (const x of [3, 1, 4, 1, 5, 9, 2]) if (x > m) m = x; return m; })()",
+	},
+
+	// ─── switch 文 ────────────────────────────────────────────────────
+	// 注: トランスパイラーは各 case 末尾に break/return が必須
+	{
+		title: "switch: マッチするケース",
+		expr: '(() => { let r = "none"; switch (2) { case 1: r = "one"; break; case 2: r = "two"; break; default: r = "other"; break; } return r; })()',
+	},
+	{
+		title: "switch: default ケース",
+		expr: '(() => { let r = "none"; switch (99) { case 1: r = "one"; break; case 2: r = "two"; break; default: r = "other"; break; } return r; })()',
+	},
+
+	// ─── ネストしたクロージャー ──────────────────────────────────────
+	{
+		title: "クロージャー: カウンター",
+		expr: "(() => { const makeCounter = () => { let n = 0; return () => ++n; }; const c = makeCounter(); c(); c(); return c(); })()",
+	},
+	{
+		title: "クロージャー: 加算器",
+		expr: "((add) => add(3)(4))((x) => (y) => x + y)",
+	},
+
+	// ─── ネストしたアクセス ───────────────────────────────────────────
+	// 注: AiScript は arr.length を持たない（Core:len() を使用）ため length テストは除外
+	{
+		title: "ネストした配列アクセス",
+		expr: "[[1, 2], [3, 4]][1][0]",
+	},
+	{
+		title: "ネストしたオブジェクトアクセス",
+		expr: "({ a: { b: { c: 42 } } }).a.b.c",
+	},
 ];
 
 describe("Integration: JS と AiScript の評価結果が一致", () => {
@@ -276,5 +383,209 @@ describe("Integration: JS と AiScript の評価結果が一致", () => {
 		const jsResult = evalAsJs(expr);
 		const aisResult = evalAsAis(expr);
 		expect(aisResult).toEqual(jsResult);
+	});
+});
+
+// ─── RegExp テスト ─────────────────────────────────────────────────────────────
+// RegExp の API は AiScript 独自 (regex.test/exec/replace/split 等) なので
+// evalAsJs との比較ではなく evalAsAis と期待値の比較で検証する
+
+describe("Integration: RegExp", () => {
+	type RegexCase = { title: string; ts: string; expected: unknown };
+	const regexCases: RegexCase[] = [
+		// ── test() ────────────────────────────────────────────────────────
+		{
+			title: "test: マッチする",
+			ts: "const r = /hello/; r.test('hello world')",
+			expected: true,
+		},
+		{
+			title: "test: マッチしない",
+			ts: "const r = /xyz/; r.test('hello world')",
+			expected: false,
+		},
+		{
+			title: "test: 大文字小文字無視 (i フラグ)",
+			ts: "const r = /HELLO/i; r.test('hello world')",
+			expected: true,
+		},
+		{
+			title: "test: 数字クラス \\d+",
+			ts: "const r = /^\\d+$/; r.test('12345')",
+			expected: true,
+		},
+		{
+			title: "test: \\d+ 非マッチ",
+			ts: "const r = /^\\d+$/; r.test('123a5')",
+			expected: false,
+		},
+
+		// ── exec() ────────────────────────────────────────────────────────
+		{
+			title: "exec: マッチしない → null",
+			ts: "const r = /xyz/; r.exec('hello') === null",
+			expected: true,
+		},
+		{
+			title: "exec: 全体マッチ [0]",
+			ts: "const r = /hel+o/; const m = r.exec('hello world'); m![0]",
+			expected: "hello",
+		},
+		{
+			title: "exec: index",
+			ts: "const r = /world/; const m = r.exec('hello world'); m!.index",
+			expected: 6,
+		},
+		{
+			title: "exec: キャプチャグループ",
+			ts: "const r = /(\\w+)\\s(\\w+)/; const m = r.exec('hello world'); m![1]",
+			expected: "hello",
+		},
+		{
+			title: "exec: キャプチャグループ 2",
+			ts: "const r = /(\\w+)\\s(\\w+)/; const m = r.exec('hello world'); m![2]",
+			expected: "world",
+		},
+		{
+			title: "exec: 名前付きグループ",
+			ts: "const r = /(?<first>\\w+)\\s(?<second>\\w+)/; const m = r.exec('hello world'); m!.groups!['first']",
+			expected: "hello",
+		},
+		{
+			title: "exec: 名前付きグループ second",
+			ts: "const r = /(?<first>\\w+)\\s(?<second>\\w+)/; const m = r.exec('hello world'); m!.groups!['second']",
+			expected: "world",
+		},
+
+		// ── replace() ────────────────────────────────────────────────────
+		{
+			title: "replace: 最初のマッチを置換",
+			ts: "const r = /o/; r.replace('foobar', 'X')",
+			expected: "fXobar",
+		},
+		{
+			title: "replace: グローバル置換 (g フラグ)",
+			ts: "const r = /o/g; r.replace('foobar', 'X')",
+			expected: "fXXbar",
+		},
+		{
+			title: "replace: スペースをハイフンに",
+			ts: "const r = /\\s+/g; r.replace('hello world foo', '-')",
+			expected: "hello-world-foo",
+		},
+
+		// ── replaceWith() ────────────────────────────────────────────────
+		{
+			title: "replaceWith: コールバックで置換",
+			ts: "const r = /\\d+/g; r.replaceWith('a1b22c333', (m, _g, _i, _s) => '[' + m + ']')",
+			expected: "a[1]b[22]c[333]",
+		},
+
+		// ── split() ──────────────────────────────────────────────────────
+		{
+			title: "split: カンマで分割",
+			ts: "const r = /,/; r.split('a,b,c')",
+			expected: ["a", "b", "c"],
+		},
+		{
+			title: "split: 空白で分割",
+			ts: "const r = /\\s+/; r.split('hello   world  foo')",
+			expected: ["hello", "world", "foo"],
+		},
+		{
+			title: "split: limit あり",
+			ts: "const r = /,/; r.split('a,b,c,d', 2)",
+			expected: ["a", "b"],
+		},
+
+		// ── execAll() ────────────────────────────────────────────────────
+		{
+			title: "execAll: 全マッチの [0]",
+			ts: "const r = /\\d+/g; r.execAll('a1b22c333').map((m) => m[0])",
+			expected: ["1", "22", "333"],
+		},
+		{
+			title: "execAll: 全マッチの index",
+			ts: "const r = /\\d+/g; r.execAll('a1b22c333').map((m) => m.index)",
+			expected: [1, 3, 6],
+		},
+
+		// ── 量詞 ────────────────────────────────────────────────────────
+		{
+			title: "量詞: ? (ゼロまたは1回)",
+			ts: "const r = /colou?r/; r.test('color')",
+			expected: true,
+		},
+		{
+			title: "量詞: + (1回以上)",
+			ts: "const r = /^a+$/; r.test('aaa')",
+			expected: true,
+		},
+		{
+			title: "量詞: * (0回以上)",
+			ts: "const r = /^a*$/; r.test('')",
+			expected: true,
+		},
+		{
+			title: "量詞: {n} 固定回数",
+			ts: "const r = /^a{3}$/; r.test('aaa')",
+			expected: true,
+		},
+		{
+			title: "量詞: {n,m} 範囲",
+			ts: "const r = /^a{2,4}$/; r.test('aaa')",
+			expected: true,
+		},
+		{
+			title: "量詞: {n,m} 範囲外",
+			ts: "const r = /^a{2,4}$/; r.test('aaaaa')",
+			expected: false,
+		},
+
+		// ── アンカー ─────────────────────────────────────────────────────
+		{
+			title: "アンカー: ^ マルチライン",
+			ts: "const r = /^bar/m; r.test('foo\\nbar')",
+			expected: true,
+		},
+		{
+			title: "アンカー: $ マルチライン",
+			ts: "const r = /foo$/m; r.test('foo\\nbar')",
+			expected: true,
+		},
+
+		// ── 文字クラス ───────────────────────────────────────────────────
+		{
+			title: "文字クラス: [a-z]",
+			ts: "const r = /^[a-z]+$/; r.test('hello')",
+			expected: true,
+		},
+		{
+			title: "文字クラス: 否定 [^0-9]",
+			ts: "const r = /^[^0-9]+$/; r.test('abc')",
+			expected: true,
+		},
+		{
+			title: "文字クラス: 否定 非マッチ",
+			ts: "const r = /^[^0-9]+$/; r.test('abc1')",
+			expected: false,
+		},
+
+		// ── source / flags プロパティ ────────────────────────────────────
+		{
+			title: "source プロパティ",
+			ts: "const r = /hello/gi; r.source",
+			expected: "hello",
+		},
+		{
+			title: "flags プロパティ",
+			ts: "const r = /hello/gi; r.flags",
+			expected: "gi",
+		},
+	];
+
+	test.each(regexCases)("$title", ({ ts: tsCode, expected }) => {
+		const result = evalAsAis(tsCode);
+		expect(result).toEqual(expected);
 	});
 });

@@ -10,11 +10,8 @@ export class LiteralPlugin extends TranspilerPlugin {
 	): Ast.Expression | undefined => {
 		switch (true) {
 			case node.kind === ts.SyntaxKind.NullKeyword:
-				this.converter.throwError(
-					"nullは使用できません代わりにundefinedを使用してください",
-					node,
-				);
-				return; // unreachable, but satisfies linter
+				// null も undefined と同様に AiScript の null に変換
+				return { type: "null", loc: dummyLoc };
 			case node.kind === ts.SyntaxKind.TrueKeyword:
 				return { type: "bool", value: true, loc: dummyLoc };
 			case node.kind === ts.SyntaxKind.FalseKeyword:
