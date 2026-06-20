@@ -2,7 +2,7 @@ import ts from "typescript";
 import { TranspilerPlugin } from "../../base.js";
 import { dummyLoc } from "../../consts.js";
 import { convertDestructuringPattern } from "../../utils/destructuring.js";
-import { coerceToBool, hasStringComponent, isBooleanLikeType, isNumberLike, isStringLike, validateNumberLike, } from "../../utils/typeValidation.js";
+import { coerceToBool, hasStringComponent, isBooleanLikeType, isStringLike, validateNumberLike, } from "../../utils/typeValidation.js";
 function isSimple(expr) {
     return (expr.type === "identifier" ||
         expr.type === "num" ||

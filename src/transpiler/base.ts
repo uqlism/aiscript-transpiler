@@ -245,7 +245,7 @@ export type TranspilerContext = {
 	getNamespaces(): string[];
 
 	// モジュール関連
-	getModuleRef(importPath: string): Ast.Expression;
+	getModuleRef(importPath: string, node?: ts.Node): Ast.Expression;
 	addExport(name: string): void;
 	/** export * from './other' 用: 丸ごと再エクスポートするモジュール参照を登録 */
 	addReExportAll(moduleRef: Ast.Expression): void;
@@ -358,11 +358,13 @@ class TranspilerContextImpl implements TranspilerContext {
 	}
 	typeChecker: ts.TypeChecker;
 	doTypeCheck: boolean;
-	getModuleRef(importPath: string): Ast.Expression {
+	getModuleRef(importPath: string, node?: ts.Node): Ast.Expression {
 		// TypeScriptのコンパイラAPIを使用してモジュール解決
+		// node.getSourceFile() を使うことでサブディレクトリのファイルでも正しく解決できる
+		const fromFileName = node ? node.getSourceFile().fileName : this.#entrySourceFile.fileName;
 		const resolution = ts.resolveModuleName(
 			importPath,
-			this.#entrySourceFile.fileName,
+			fromFileName,
 			this.#program.getCompilerOptions(),
 			ts.sys,
 		);
