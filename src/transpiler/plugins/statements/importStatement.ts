@@ -26,7 +26,7 @@ export class ImportStatementPlugin extends TranspilerPlugin {
 		if (node.importClause?.isTypeOnly) return [];
 
 		const importPath = node.moduleSpecifier.text;
-		const moduleRef = this.converter.getModuleRef(importPath);
+		const moduleRef = this.converter.getModuleRef(importPath, node);
 
 		if (!node.importClause) {
 			return [];

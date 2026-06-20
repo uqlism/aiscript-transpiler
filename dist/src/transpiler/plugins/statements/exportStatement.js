@@ -22,13 +22,13 @@ export class ExportStatementPlugin extends TranspilerPlugin {
             const importPath = node.moduleSpecifier.text;
             if (!node.exportClause) {
                 // export * from './other'
-                const moduleRef = this.converter.getModuleRef(importPath);
+                const moduleRef = this.converter.getModuleRef(importPath, node);
                 this.converter.addReExportAll(moduleRef);
                 return [];
             }
             if (ts.isNamedExports(node.exportClause)) {
                 // export { foo, bar as baz } from './other'
-                const moduleRef = this.converter.getModuleRef(importPath);
+                const moduleRef = this.converter.getModuleRef(importPath, node);
                 const statements = [];
                 for (const element of node.exportClause.elements) {
                     if (element.isTypeOnly)

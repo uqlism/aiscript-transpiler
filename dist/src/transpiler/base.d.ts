@@ -41,7 +41,7 @@ export type TranspilerContext = {
     typeChecker: ts.TypeChecker;
     doTypeCheck: boolean;
     getNamespaces(): string[];
-    getModuleRef(importPath: string): Ast.Expression;
+    getModuleRef(importPath: string, node?: ts.Node): Ast.Expression;
     addExport(name: string): void;
     /** export * from './other' 用: 丸ごと再エクスポートするモジュール参照を登録 */
     addReExportAll(moduleRef: Ast.Expression): void;

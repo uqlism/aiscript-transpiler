@@ -260,9 +260,11 @@ class TranspilerContextImpl {
     }
     typeChecker;
     doTypeCheck;
-    getModuleRef(importPath) {
+    getModuleRef(importPath, node) {
         // TypeScriptのコンパイラAPIを使用してモジュール解決
-        const resolution = ts.resolveModuleName(importPath, this.#entrySourceFile.fileName, this.#program.getCompilerOptions(), ts.sys);
+        // node.getSourceFile() を使うことでサブディレクトリのファイルでも正しく解決できる
+        const fromFileName = node ? node.getSourceFile().fileName : this.#entrySourceFile.fileName;
+        const resolution = ts.resolveModuleName(importPath, fromFileName, this.#program.getCompilerOptions(), ts.sys);
         const findModule = (fileName) => this.#sortedModules.find((m) => m.fileName === fileName);
         let mod = resolution.resolvedModule?.resolvedFileName
             ? findModule(resolution.resolvedModule.resolvedFileName)

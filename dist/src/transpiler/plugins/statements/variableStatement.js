@@ -1,7 +1,7 @@
 import ts from "typescript";
 import { TranspilerPlugin } from "../../base.js";
 import { dummyLoc } from "../../consts.js";
-import { convertBindingPattern, convertDestructuringAssignment, } from "../../utils/destructuring.js";
+import { convertBindingPattern, convertDestructuringAssignment, validateBindingPattern, } from "../../utils/destructuring.js";
 // デフォルト値・rest 要素があるパターンは AiScript ネイティブ展開では扱えない
 function needsExpansion(pattern) {
     for (const element of pattern.elements) {
@@ -67,6 +67,7 @@ export class VariableStatementPlugin extends TranspilerPlugin {
             }
             else {
                 // 単純な分割代入: AiScript ネイティブ分割代入を利用
+                validateBindingPattern(nameNode, this.converter);
                 definitions.push({
                     type: "def",
                     dest: convertBindingPattern(nameNode),

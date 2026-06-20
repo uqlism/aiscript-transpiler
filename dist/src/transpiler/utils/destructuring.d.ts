@@ -19,6 +19,10 @@ export declare function convertDestructuringPattern(node: ts.Expression): Ast.Ex
 export declare function convertBindingNameArg(bindingName: ts.BindingName, isMutable: boolean, context: TranspilerContext): [Ast.Identifier, Ast.Definition[]];
 type FnParam = Ast.Fn["params"][number];
 /**
+ * BindingName に含まれる全識別子を予約語チェックする
+ */
+export declare function validateBindingPattern(bindingName: ts.BindingName, context: TranspilerContext): void;
+/**
  * 関数/メソッド/コンストラクタのパラメータをAiScript用に変換する
  */
 export declare function processParameters(parameters: readonly ts.ParameterDeclaration[], context: TranspilerContext): FnParam[];

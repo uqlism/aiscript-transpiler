@@ -325,11 +325,28 @@ export function convertBindingNameArg(bindingName, isMutable, context) {
     }
 }
 /**
+ * BindingName に含まれる全識別子を予約語チェックする
+ */
+export function validateBindingPattern(bindingName, context) {
+    if (ts.isIdentifier(bindingName)) {
+        context.validateVariableName(bindingName.text, bindingName);
+    }
+    else if (ts.isArrayBindingPattern(bindingName) ||
+        ts.isObjectBindingPattern(bindingName)) {
+        for (const element of bindingName.elements) {
+            if (!ts.isBindingElement(element))
+                continue;
+            validateBindingPattern(element.name, context);
+        }
+    }
+}
+/**
  * 関数/メソッド/コンストラクタのパラメータをAiScript用に変換する
  */
 export function processParameters(parameters, context) {
     const params = [];
     for (const param of parameters) {
+        validateBindingPattern(param.name, context);
         params.push({
             dest: convertBindingPattern(param.name),
             optional: !!param.questionToken,
